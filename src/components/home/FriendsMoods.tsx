@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/States";
 import { useFriends } from "@/hooks/data";
 import { moodOf } from "@/lib/mood";
 import { formatRelativeDay, timeAgo } from "@/lib/dates";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** «Как дела у друзей?» — горизонтальная лента карточек */
 export function FriendsMoods() {
@@ -36,7 +37,7 @@ export function FriendsMoods() {
           <ChevronRight className="size-5 text-muted" />
         </Link>
       ) : (
-        <ul className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 min-[380px]:-mx-5 min-[380px]:px-5 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0">
+        <ul className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 min-[380px]:-mx-5 min-[380px]:px-5 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 xl:grid-cols-4">
           {data.map((f) => {
             const m = f.mood_value ? moodOf(f.mood_value) : null;
             return (
@@ -49,10 +50,10 @@ export function FriendsMoods() {
                     <Avatar src={f.avatar_url} name={f.display_name} size={48} />
                     {m && (
                       <span
-                        className="emoji absolute -bottom-1 -right-2 flex size-7 items-center justify-center rounded-full border-2 border-surface text-[15px]"
+                        className="absolute -bottom-1 -right-2 flex size-7 items-center justify-center rounded-full border-2 border-surface text-[15px]"
                         style={{ background: m.soft }}
                       >
-                        {m.emoji}
+                        <MoodEmoji value={m.value} size={20} />
                       </span>
                     )}
                   </div>

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Общая обёртка экранов входа. Вошедших пользователей отправляет в приложение. */
 export function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -26,7 +27,11 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <Logo />
         </span>
         <div>
-          <p className="emoji mb-6 text-6xl">😄 🙂 😐 😔 😣</p>
+          <div className="mb-8 flex gap-3">
+            {[5, 4, 3, 2, 1].map((v) => (
+              <span key={v} className="flex size-16 items-center justify-center rounded-[20px] bg-white/95"><MoodEmoji value={v} size={44} decorative /></span>
+            ))}
+          </div>
           <h2 className="max-w-md text-4xl font-extrabold leading-tight tracking-tight">
             Узнавай себя. Замечай перемены. Будь ближе к друзьям.
           </h2>

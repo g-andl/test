@@ -30,7 +30,7 @@ export function PageHeader({
           </button>
         )}
         {eyebrow && <p className="text-[15px] font-medium text-muted">{eyebrow}</p>}
-        <h1 className="truncate text-[30px] font-extrabold leading-tight tracking-tight lg:text-[34px]">{title}</h1>
+        <h1 className="text-[28px] font-extrabold leading-[1.15] tracking-tight [overflow-wrap:anywhere] min-[380px]:text-[30px] lg:text-[34px]">{title}</h1>
       </div>
       <div className="flex shrink-0 items-center gap-2 pb-1">
         {actions}

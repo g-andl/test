@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { monthGrid, toKey, todayKey, WEEKDAYS_SHORT, MONTHS } from "@/lib/dates";
 import { moodOf } from "@/lib/mood";
 import type { EntryLite, MoodValue } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Календарь месяца: неделя с понедельника, цвет и эмодзи по настроению */
 export function MonthCalendar({
@@ -107,7 +108,7 @@ export function MonthCalendar({
                     {d.getDate()}
                   </span>
                   {m && !dim ? (
-                    <span className="emoji mt-1.5 text-[18px] min-[400px]:text-[22px]">{m.emoji}</span>
+                    <MoodEmoji value={m.value} decorative size={24} className="mt-1.5 !size-[58%] max-w-8" />
                   ) : null}
                 </button>
               );

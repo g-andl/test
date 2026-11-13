@@ -4,6 +4,7 @@ import { moodOf, dayPartOf } from "@/lib/mood";
 import { formatTime } from "@/lib/dates";
 import { usePhoto } from "@/hooks/data";
 import type { EntryLite } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Карточка записи в стиле таймлайна */
 export function EntryCard({ entry, onClick, highlight }: { entry: EntryLite; onClick?: () => void; highlight?: boolean }) {
@@ -17,8 +18,8 @@ export function EntryCard({ entry, onClick, highlight }: { entry: EntryLite; onC
       style={{ background: highlight ? m.soft : "var(--surface)" }}
     >
       <div className="flex items-center gap-3">
-        <span className="emoji flex size-11 shrink-0 items-center justify-center rounded-2xl text-[26px]" style={{ background: m.soft }}>
-          {m.emoji}
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl" style={{ background: m.soft }}>
+          <MoodEmoji value={m.value} size={30} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[16px] font-bold" style={{ color: m.color }}>{m.label}</p>

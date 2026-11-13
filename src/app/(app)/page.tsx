@@ -35,23 +35,34 @@ export default function HomePage() {
     }
   }, [openMood]);
 
+  const todayBlock = loading ? (
+    <Skeleton className="h-56 rounded-[28px]" />
+  ) : error ? (
+    <ErrorState text={humanError(error)} onRetry={refetch} />
+  ) : (
+    <TodayCard entry={today} onOpen={(mood) => openMood({ mood })} />
+  );
+  const monthBlock = loading ? <Skeleton className="h-40" /> : <MonthSummary entries={entries} />;
+
   return (
     <>
       <PageHeader eyebrow={capitalize(formatLong(new Date()))} title={`${greeting()}, ${firstName}!`} />
-      <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
-        <div className="flex min-w-0 flex-col gap-5">
-          {loading ? (
-            <Skeleton className="h-56 rounded-[28px]" />
-          ) : error ? (
-            <ErrorState text={humanError(error)} onRetry={refetch} />
-          ) : (
-            <TodayCard entry={today} onOpen={(mood) => openMood({ mood })} />
-          )}
-          <WeekStrip byDate={byDate} onPick={(date) => openMood({ date })} />
+      {/* Телефон: одна колонка — сегодня, неделя, друзья, месяц */}
+      <div className="flex flex-col gap-5 lg:hidden">
+        {todayBlock}
+        <WeekStrip byDate={byDate} onPick={(date) => openMood({ date })} />
+        <FriendsMoods />
+        {monthBlock}
+      </div>
+      {/* Компьютер: слева «сегодня» и друзья, справа неделя и месяц */}
+      <div className="hidden gap-6 lg:grid lg:grid-cols-12 lg:items-start">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-span-7">
+          {todayBlock}
           <FriendsMoods />
         </div>
-        <div className="flex flex-col gap-5">
-          {loading ? <Skeleton className="h-40" /> : <MonthSummary entries={entries} />}
+        <div className="flex min-w-0 flex-col gap-6 lg:col-span-5">
+          <WeekStrip byDate={byDate} onPick={(date) => openMood({ date })} />
+          {monthBlock}
         </div>
       </div>
     </>

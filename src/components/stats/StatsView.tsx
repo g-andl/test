@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-import { Sparkles, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { Sparkles, TrendingDown, TrendingUp, Minus, BarChart3 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { Skeleton, EmptyState } from "@/components/ui/States";
@@ -12,6 +12,7 @@ import {
 import { MOODS, moodOf, DAY_PARTS } from "@/lib/mood";
 import { WEEKDAYS, plural } from "@/lib/dates";
 import type { EntryLite } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 // Recharts загружается только на экране статистики
 const DynamicsChart = dynamic(() => import("./Charts").then((m) => m.DynamicsChart), {
@@ -82,12 +83,11 @@ export function StatsView({
         value={period}
         onChange={setPeriod}
         options={PERIODS.map((p) => ({ value: p.id, label: p.label }))}
-        className="-mx-1"
       />
 
       {s.count === 0 ? (
         <Card>
-          <EmptyState emoji="📊" title="За этот период нет отметок" text="Выбери другой период или начни отмечать настроение каждый день" />
+          <EmptyState icon={<BarChart3 />} title="За этот период нет отметок" text="Выбери другой период или начни отмечать настроение каждый день" />
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -102,14 +102,14 @@ export function StatsView({
               <div className="rounded-2xl bg-surface-2 p-3.5">
                 <p className="text-xs font-medium text-muted">Среднее</p>
                 <p className="mt-1 flex items-center gap-1.5 text-[24px] font-extrabold tracking-tight">
-                  {fmtAvg(s.avg)} <span className="emoji text-xl">{s.avg ? moodOf(s.avg).emoji : ""}</span>
+                  {fmtAvg(s.avg)} {s.avg ? <MoodEmoji value={s.avg} size={24} /> : null}
                 </p>
                 <p className="text-xs text-muted">по шкале от 1 до 5</p>
               </div>
               <div className="rounded-2xl bg-surface-2 p-3.5">
                 <p className="text-xs font-medium text-muted">Чаще всего</p>
                 <p className="mt-1 flex items-center gap-1.5 text-[19px] font-extrabold tracking-tight">
-                  <span className="emoji text-xl">{top?.emoji}</span> {top?.label}
+                  {top && <MoodEmoji value={top.value} size={24} />} {top?.label}
                 </p>
                 <p className="text-xs text-muted">{s.mostFrequent ? `${s.distribution[s.mostFrequent]} ${plural(s.distribution[s.mostFrequent], ["раз", "раза", "раз"])}` : ""}</p>
               </div>
@@ -164,7 +164,7 @@ export function StatsView({
                 const share = s.count ? n / s.count : 0;
                 return (
                   <li key={m.value} className="flex items-center gap-3">
-                    <span className="emoji w-7 text-center text-[22px]">{m.emoji}</span>
+                    <MoodEmoji value={m.value} size={28} />
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex justify-between text-[13px]">
                         <span className="font-semibold">{m.label}</span>
@@ -190,11 +190,11 @@ export function StatsView({
               <div className="mt-3 grid grid-cols-2 gap-2 text-[13px]">
                 <div className="rounded-2xl bg-surface-2 p-3">
                   <p className="text-muted">Лучший день</p>
-                  <p className="font-bold capitalize">{WEEKDAYS[bestWd.index]} <span className="emoji">{moodOf(bestWd.avg!).emoji}</span></p>
+                  <p className="font-bold capitalize">{WEEKDAYS[bestWd.index]} <MoodEmoji value={bestWd.avg!} size={18} className="align-[-3px]" /></p>
                 </div>
                 <div className="rounded-2xl bg-surface-2 p-3">
                   <p className="text-muted">Сложнее всего</p>
-                  <p className="font-bold capitalize">{WEEKDAYS[worstWd.index]} <span className="emoji">{moodOf(worstWd.avg!).emoji}</span></p>
+                  <p className="font-bold capitalize">{WEEKDAYS[worstWd.index]} <MoodEmoji value={worstWd.avg!} size={18} className="align-[-3px]" /></p>
                 </div>
               </div>
             )}
@@ -210,10 +210,10 @@ export function StatsView({
                 return (
                   <li key={p.part} className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3.5">
                     <span
-                      className="emoji flex size-12 shrink-0 items-center justify-center rounded-2xl text-2xl"
+                      className="flex size-12 shrink-0 items-center justify-center rounded-2xl text-muted"
                       style={{ background: m ? m.soft : "var(--surface-3)" }}
                     >
-                      {m ? m.emoji : "·"}
+                      {m ? <MoodEmoji value={m.value} size={30} /> : "·"}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[15px] font-bold">{def.label}</p>

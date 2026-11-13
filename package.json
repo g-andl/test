@@ -5,8 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:db": "node --test tests/backend/rls.test.mjs",
+    "test:e2e": "node tests/e2e/flow.mjs",
+    "preview": "npx http-server out -p 3000 -s -c-1",
+    "typecheck": "tsc --noEmit",
+    "test:push": "node --test tests/backend/push.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
@@ -18,13 +22,13 @@
     "recharts": "^3.10.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "playwright": "^1.65.1",
     "supabase": "^3.1.0",
     "tailwindcss": "4.3.3",
     "typescript": "^5"

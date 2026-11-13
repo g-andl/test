@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Flame } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { summarize, fmtAvg, fmtPct, currentStreak } from "@/lib/stats";
-import { moodOf } from "@/lib/mood";
 import { MONTHS, plural } from "@/lib/dates";
 import type { MoodEntry } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Краткая статистика текущего месяца */
 export function MonthSummary({ entries }: { entries: MoodEntry[] }) {
@@ -17,7 +17,7 @@ export function MonthSummary({ entries }: { entries: MoodEntry[] }) {
 
   const tiles = [
     { label: "Отмечено", value: `${s.count}`, sub: plural(s.count, ["день", "дня", "дней"]) },
-    { label: "Среднее", value: fmtAvg(s.avg), sub: s.avg ? moodOf(s.avg).emoji : "", emoji: true },
+    { label: "Среднее", value: fmtAvg(s.avg), sub: "", avgEmoji: s.avg, emoji: true },
     { label: "Хороших", value: s.count ? fmtPct(s.positive) : "—", sub: "дней" },
   ];
 
@@ -33,16 +33,17 @@ export function MonthSummary({ entries }: { entries: MoodEntry[] }) {
         {tiles.map((t) => (
           <div key={t.label} className="rounded-2xl bg-surface-2 px-3 py-3">
             <p className="text-xs font-medium text-muted">{t.label}</p>
-            <p className="mt-1 flex items-baseline gap-1 text-[22px] font-extrabold tracking-tight">
+            <p className="mt-1 flex items-center gap-1 text-[22px] font-extrabold tracking-tight">
               {t.value}
-              <span className={`text-sm font-medium text-muted ${t.emoji ? "emoji" : ""}`}>{t.sub}</span>
+              {t.emoji && t.avgEmoji ? <MoodEmoji value={t.avgEmoji} size={22} /> : null}
             </p>
+            {!t.emoji && <p className="text-xs text-muted">{t.sub}</p>}
           </div>
         ))}
       </div>
       {streak >= 2 && (
-        <p className="mt-3 text-sm text-text-2">
-          🔥 {streak} {plural(streak, ["день", "дня", "дней"])} подряд с отметкой
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-text-2">
+          <Flame className="size-4 text-[#f08a3c]" /> {streak} {plural(streak, ["день", "дня", "дней"])} подряд с отметкой
         </p>
       )}
     </Card>

@@ -8,6 +8,7 @@ import { moodOf } from "@/lib/mood";
 import { fmtAvg, type SeriesPoint, type WeekdayStat } from "@/lib/stats";
 import { WEEKDAYS_SHORT, WEEKDAYS, plural } from "@/lib/dates";
 import { useCssVars } from "./useCssVars";
+import { MoodEmoji, moodEmojiSrc } from "@/components/mood/MoodEmoji";
 
 const VARS = ["accent", "muted", "line", "surface", "text", "mood-1", "mood-2", "mood-3", "mood-4", "mood-5"] as const;
 
@@ -21,7 +22,7 @@ function TipBox({ title, value, sub }: { title: string; value: number | null; su
       <p className="text-xs opacity-70">{title}</p>
       {m ? (
         <p className="mt-0.5 flex items-center gap-1.5 text-sm font-bold">
-          <span className="emoji">{m.emoji}</span> {value! % 1 === 0 ? m.label : fmtAvg(value)}
+          <MoodEmoji value={m.value} size={18} /> {value! % 1 === 0 ? m.label : fmtAvg(value)}
         </p>
       ) : (
         <p className="mt-0.5 text-sm font-semibold">Нет отметок</p>
@@ -32,9 +33,7 @@ function TipBox({ title, value, sub }: { title: string; value: number | null; su
 }
 
 const EmojiTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value: number } }) => (
-  <text x={x} y={y} dy={5} textAnchor="end" fontSize={15} className="emoji">
-    {payload ? moodOf(payload.value).emoji : ""}
-  </text>
+  payload ? <image href={moodEmojiSrc(payload.value)} x={(x ?? 0) - 20} y={(y ?? 0) - 9} width={18} height={18} /> : <g />
 );
 
 /** Динамика настроения по шкале 1–5 */

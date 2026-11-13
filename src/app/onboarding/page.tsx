@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
+import { TrendingUp, Users } from "lucide-react";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/States";
@@ -10,9 +12,9 @@ import { updateProfile } from "@/lib/api";
 import { humanError } from "@/lib/errors";
 
 const SLIDES = [
-  { emoji: "😄 🙂 😐", title: "Отмечай настроение", text: "Раз в день выбери, как ты себя чувствуешь. Можно добавить заметку и фото — они видны только тебе." },
-  { emoji: "📈", title: "Замечай закономерности", text: "Календарь и статистика покажут, в какие дни и в какое время суток тебе лучше." },
-  { emoji: "🤝", title: "Будь ближе к друзьям", text: "Добавь друзей и смотри, как у них дела. Что показывать — решаешь ты сам." },
+  { visual: <span className="flex -space-x-3">{[5, 4, 3].map((v) => <MoodEmoji key={v} value={v} size={56} decorative />)}</span>, title: "Отмечай настроение", text: "Раз в день выбери, как ты себя чувствуешь. Можно добавить заметку и фото — они видны только тебе." },
+  { visual: <TrendingUp className="size-14 text-accent" strokeWidth={2.2} />, title: "Замечай закономерности", text: "Календарь и статистика покажут, в какие дни и в какое время суток тебе лучше." },
+  { visual: <Users className="size-14 text-accent" strokeWidth={2.2} />, title: "Будь ближе к друзьям", text: "Добавь друзей и смотри, как у них дела. Что показывать — решаешь ты сам." },
 ];
 
 export default function OnboardingPage() {
@@ -63,7 +65,7 @@ export default function OnboardingPage() {
             transition={{ duration: 0.22 }}
           >
             <div className="mx-auto mb-8 flex size-36 items-center justify-center rounded-[40px] bg-accent-soft">
-              <span className="emoji text-5xl">{s.emoji}</span>
+              {s.visual}
             </div>
             {i === 0 && <p className="mb-2 font-semibold text-accent">Привет, {profile.display_name}!</p>}
             <h1 className="text-[28px] font-extrabold tracking-tight">{s.title}</h1>

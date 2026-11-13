@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, Check, X, UserPlus, Clock3 } from "lucide-react";
+import { Search, Check, X, UserPlus, Clock3, Users, Inbox, Activity } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented } from "@/components/ui/Segmented";
 import { Button } from "@/components/ui/Button";
@@ -82,7 +82,7 @@ export default function FriendsPage() {
           ) : search.error ? (
             <ErrorState text={humanError(search.error)} onRetry={search.refetch} />
           ) : !search.data?.length ? (
-            <EmptyState emoji="🔍" title="Никого не нашли" text="Проверь имя пользователя — например, masha_k" />
+            <EmptyState icon={<Search />} title="Никого не нашли" text="Проверь имя пользователя — например, masha_k" />
           ) : (
             search.data.map((u) => {
               const pending = pendingIds.get(u.id);
@@ -132,7 +132,7 @@ export default function FriendsPage() {
             ) : friends.error ? (
               <ErrorState text={humanError(friends.error)} onRetry={friends.refetch} />
             ) : !friends.data?.length ? (
-              <EmptyState emoji="🤝" title="Пока нет друзей" text="Найди друзей по имени пользователя в поиске выше" />
+              <EmptyState icon={<Users />} title="Пока нет друзей" text="Найди друзей по имени пользователя в поиске выше" />
             ) : (
               <ul className="grid gap-2 lg:grid-cols-2">
                 {friends.data.map((f) => (
@@ -166,7 +166,7 @@ export default function FriendsPage() {
             ) : requests.error ? (
               <ErrorState text={humanError(requests.error)} onRetry={requests.refetch} />
             ) : !requests.data?.length ? (
-              <EmptyState emoji="📭" title="Заявок нет" text="Здесь появятся входящие и отправленные заявки" />
+              <EmptyState icon={<Inbox />} title="Заявок нет" text="Здесь появятся входящие и отправленные заявки" />
             ) : (
               <div className="flex flex-col gap-5">
                 {incoming.length > 0 && (
@@ -235,7 +235,7 @@ export default function FriendsPage() {
             ) : activity.error ? (
               <ErrorState text={humanError(activity.error)} onRetry={activity.refetch} />
             ) : !activity.data?.length ? (
-              <EmptyState emoji="🌤️" title="Пока тихо" text="Здесь появятся отметки друзей за последние две недели" />
+              <EmptyState icon={<Activity />} title="Пока тихо" text="Здесь появятся отметки друзей за последние две недели" />
             ) : (
               <ul className="flex flex-col gap-2 lg:max-w-2xl">
                 {activity.data.map((a) => {

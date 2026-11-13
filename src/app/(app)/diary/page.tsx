@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { CalendarSearch } from "lucide-react";
+import { CalendarSearch, SearchX, BookOpen } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented, Chip } from "@/components/ui/Segmented";
 import { Card } from "@/components/ui/Card";
@@ -16,6 +16,7 @@ import { MOODS } from "@/lib/mood";
 import { fromKey, todayKey } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import type { MoodValue } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 type Mode = "feed" | "calendar";
 type CalMode = "month" | "year";
@@ -47,7 +48,7 @@ export default function DiaryPage() {
       <Chip active={!filter} onClick={() => setFilter(null)}>Все</Chip>
       {MOODS.map((m) => (
         <Chip key={m.value} active={filter === m.value} onClick={() => setFilter(filter === m.value ? null : m.value)}>
-          <span className="emoji">{m.emoji}</span> {m.label}
+          <MoodEmoji value={m.value} size={20} decorative /> {m.label}
         </Chip>
       ))}
     </div>
@@ -93,7 +94,7 @@ export default function DiaryPage() {
       ) : mode === "feed" ? (
         filtered.length === 0 ? (
           <EmptyState
-            emoji={filter ? "🔍" : "📔"}
+            icon={filter ? <SearchX /> : <BookOpen />}
             title={filter ? "Нет таких записей" : "Дневник пока пуст"}
             text={filter ? "Попробуй выбрать другое настроение" : "Отметь настроение — и здесь появится первая запись"}
             action={!filter && <Button onClick={() => openMood()}>Отметить настроение</Button>}

@@ -126,7 +126,8 @@ export async function fetchActivity(): Promise<ActivityRow[]> {
   return (check(await supabase.rpc("get_friends_activity", { p_limit: 40 })) ?? []) as ActivityRow[];
 }
 export async function searchUsers(q: string, myId: string) {
-  const clean = q.trim().toLowerCase().replace(/^@/, "").replace(/[%_\\,()]/g, "");
+  // Убираем символы, ломающие фильтр PostgREST; «_» оставляем — он бывает в username
+  const clean = q.trim().toLowerCase().replace(/^@/, "").replace(/[%\\,()*"]/g, "");
   if (clean.length < 2) return [];
   return check(
     await supabase

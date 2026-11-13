@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { CheckCheck, Settings } from "lucide-react";
+import { CheckCheck, Settings, Bell, BellOff } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
@@ -13,9 +13,10 @@ import { moodOf } from "@/lib/mood";
 import { timeAgo, todayKey, toKey } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import type { NotificationRow } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Текст уведомления (без заметок и фото) */
-function notificationText(n: NotificationRow): { text: React.ReactNode; emoji?: string } {
+function notificationText(n: NotificationRow): { text: React.ReactNode; mood?: number } {
   const name = <b>{n.actor?.display_name ?? "Пользователь"}</b>;
   const m = n.data?.mood_value ? moodOf(n.data.mood_value) : null;
   switch (n.type) {
@@ -28,10 +29,10 @@ function notificationText(n: NotificationRow): { text: React.ReactNode; emoji?: 
     case "friend_mood":
       return {
         text: m && m.value <= 2 ? <>{name} сегодня чувствует себя {m.feel}</> : <>{name} отметил(а) настроение: <b>{m?.label}</b></>,
-        emoji: m?.emoji,
+        mood: m?.value,
       };
     case "friend_mood_updated":
-      return { text: <>{name} обновил(а) своё настроение{m ? <>: <b>{m.label}</b></> : null}</>, emoji: m?.emoji };
+      return { text: <>{name} обновил(а) своё настроение{m ? <>: <b>{m.label}</b></> : null}</>, mood: m?.value };
   }
 }
 
@@ -93,16 +94,16 @@ export default function NotificationsPage() {
         ) : q.error ? (
           <ErrorState text={humanError(q.error)} onRetry={q.refetch} />
         ) : hiddenInApp ? (
-          <EmptyState emoji="🔕" title="Внутренние уведомления выключены" text="Их можно включить в настройках уведомлений" />
+          <EmptyState icon={<BellOff />} title="Внутренние уведомления выключены" text="Их можно включить в настройках уведомлений" />
         ) : !items.length ? (
-          <EmptyState emoji="🔔" title="Пока нет уведомлений" text="Здесь появятся заявки в друзья и обновления настроения друзей" />
+          <EmptyState icon={<Bell />} title="Пока нет уведомлений" text="Здесь появятся заявки в друзья и обновления настроения друзей" />
         ) : (
           groups.map((g) => (
             <section key={g.title} className="mb-5">
               <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-muted">{g.title}</h2>
               <ul className="flex flex-col gap-2">
                 {g.items.map((n) => {
-                  const { text, emoji } = notificationText(n);
+                  const { text, mood } = notificationText(n);
                   return (
                     <li key={n.id}>
                       <button
@@ -111,9 +112,9 @@ export default function NotificationsPage() {
                       >
                         <span className="relative">
                           <Avatar src={n.actor?.avatar_url} name={n.actor?.display_name ?? "?"} size={48} />
-                          {emoji && (
-                            <span className="emoji absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full bg-surface text-sm">
-                              {emoji}
+                          {mood && (
+                            <span className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-surface text-sm">
+                              <MoodEmoji value={mood} size={20} />
                             </span>
                           )}
                         </span>

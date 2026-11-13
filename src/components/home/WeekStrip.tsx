@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { addDays, startOfWeek, toKey, todayKey, WEEKDAYS_SHORT, MONTHS } from "@/lib/dates";
+import { addDays, startOfWeek, toKey, todayKey, WEEKDAYS_SHORT, MONTHS, capitalize } from "@/lib/dates";
 import { moodOf } from "@/lib/mood";
 import type { MoodEntry } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Полоса недели: Пн–Вс, сегодня выделено. Нажатие открывает отметку за день. */
 export function WeekStrip({ byDate, onPick }: { byDate: Map<string, MoodEntry>; onPick: (key: string) => void }) {
@@ -18,8 +19,8 @@ export function WeekStrip({ byDate, onPick }: { byDate: Map<string, MoodEntry>; 
         <button onClick={() => setOffset((o) => o - 1)} aria-label="Предыдущая неделя" className="flex size-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
           <ChevronLeft className="size-5" />
         </button>
-        <span className="text-sm font-semibold capitalize text-text-2">
-          {offset === 0 ? "Эта неделя" : `${MONTHS[start.getMonth()]} ${start.getFullYear()}`}
+        <span className="text-sm font-semibold text-text-2">
+          {offset === 0 ? "Эта неделя" : capitalize(`${MONTHS[start.getMonth()]} ${start.getFullYear()}`)}
         </span>
         <button
           onClick={() => setOffset((o) => Math.min(0, o + 1))}
@@ -49,8 +50,8 @@ export function WeekStrip({ byDate, onPick }: { byDate: Map<string, MoodEntry>; 
                 <span className={`text-[17px] font-bold ${isToday ? "text-accent" : ""}`}>{d.getDate()}</span>
                 <span className="flex h-7 items-center justify-center">
                   {m ? (
-                    <span className="emoji flex size-7 items-center justify-center rounded-full text-base" style={{ background: m.soft }}>
-                      {m.emoji}
+                    <span className="flex size-8 items-center justify-center rounded-full" style={{ background: m.soft }}>
+                      <MoodEmoji value={m.value} size={22} decorative />
                     </span>
                   ) : (
                     <span className={`size-1.5 rounded-full ${isToday ? "bg-accent" : "bg-transparent"}`} />

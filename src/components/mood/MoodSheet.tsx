@@ -13,6 +13,7 @@ import { invalidate } from "@/lib/query";
 import { humanError } from "@/lib/errors";
 import { usePhoto } from "@/hooks/data";
 import type { DayPart, MoodEntry, MoodValue } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 type TimeChoice = "now" | DayPart | "exact";
 
@@ -196,7 +197,7 @@ export function MoodSheet({
       }
     >
       {/* Выбор настроения */}
-      <div role="radiogroup" aria-label="Настроение" className="grid grid-cols-5 gap-1.5">
+      <div role="radiogroup" aria-label="Настроение" className="grid grid-cols-5 gap-1 min-[380px]:gap-1.5">
         {MOODS.map((m) => {
           const active = mood === m.value;
           return (
@@ -206,14 +207,14 @@ export function MoodSheet({
               aria-checked={active}
               aria-label={`${m.label}: ${m.description}`}
               onClick={() => setMood(m.value)}
-              className="flex min-h-[84px] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 transition active:scale-95"
+              className="flex min-h-[84px] min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl border-2 transition active:scale-95"
               style={{
                 background: active ? m.soft : "var(--surface-2)",
                 borderColor: active ? m.color : "transparent",
               }}
             >
-              <span className={`emoji text-[32px] transition ${mood && !active ? "opacity-50 grayscale-[40%]" : ""}`}>{m.emoji}</span>
-              <span className="text-[11px] font-semibold leading-none text-text-2 min-[360px]:text-xs">{m.label}</span>
+              <MoodEmoji value={m.value} size={40} decorative className={`transition duration-200 ${active ? "scale-110" : ""} ${mood && !active ? "opacity-45 grayscale-[50%]" : ""}`} />
+              <span className="max-w-full px-0.5 text-[10px] font-semibold leading-none tracking-[-0.01em] text-text-2 min-[410px]:text-[11px] min-[460px]:text-xs">{m.label}</span>
             </button>
           );
         })}

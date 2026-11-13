@@ -8,6 +8,7 @@ import { summarize, fmtAvg, fmtPct, inRange } from "@/lib/stats";
 import { MONTHS, monthGrid, toKey, plural, WEEKDAYS_SHORT } from "@/lib/dates";
 import { moodOf } from "@/lib/mood";
 import type { EntryLite } from "@/lib/types";
+import { MoodEmoji, moodEmojiSrc } from "@/components/mood/MoodEmoji";
 
 const LIGHT_SOFT: Record<number, string> = { 5: "#e3f6ed", 4: "#e7f0fe", 3: "#eef1f5", 2: "#efecfe", 1: "#fde9e9" };
 const MONTH_PREP = ["январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре", "октябре", "ноябре", "декабре"];
@@ -21,7 +22,19 @@ async function renderImage(year: number, month: number, entries: EntryLite[], na
   const ctx = c.getContext("2d")!;
   const css = getComputedStyle(document.documentElement);
   const font = css.getPropertyValue("--font-manrope").trim() || "system-ui";
-  const emojiFont = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  // Картинки эмодзи загружаем заранее, чтобы нарисовать на холсте
+  const imgs = new Map<number, HTMLImageElement>();
+  await Promise.all(
+    [1, 2, 3, 4, 5].map(
+      (v) =>
+        new Promise<void>((res) => {
+          const im = new Image();
+          im.onload = () => { imgs.set(v, im); res(); };
+          im.onerror = () => res();
+          im.src = moodEmojiSrc(v);
+        }),
+    ),
+  );
   const s = summarize(entries);
   const byDate = new Map(entries.map((e) => [e.entry_date, e]));
 
@@ -44,8 +57,8 @@ async function renderImage(year: number, month: number, entries: EntryLite[], na
 
   const top = s.mostFrequent ? moodOf(s.mostFrequent) : null;
   if (top) {
-    ctx.font = `150px ${emojiFont}`;
-    ctx.fillText(top.emoji, W - 300, 260);
+    const im = imgs.get(top.value);
+    if (im) ctx.drawImage(im, W - 300, 110, 160, 160);
   }
 
   const tiles = [
@@ -82,8 +95,8 @@ async function renderImage(year: number, month: number, entries: EntryLite[], na
       ctx.font = `600 22px ${font}`;
       ctx.fillText(String(d.getDate()), x + 12, y + 30);
       if (m) {
-        ctx.font = `48px ${emojiFont}`;
-        ctx.fillText(m.emoji, x + cell / 2 - 26, y + cell * 0.8 - 22);
+        const im = imgs.get(m.value);
+        if (im) ctx.drawImage(im, x + cell / 2 - 26, y + 26, 52, 52);
       }
     }),
   );
@@ -156,7 +169,7 @@ export function MonthCard({ entries, name }: { entries: EntryLite[]; name: strin
       ) : (
         <>
           <div className="flex items-center gap-4 rounded-[20px] p-4" style={{ background: top?.soft }}>
-            <span className="emoji text-5xl">{top?.emoji}</span>
+            {top && <MoodEmoji value={top.value} size={56} />}
             <p className="text-[15px] leading-snug text-text-2">
               В {MONTH_PREP[ym.m]} чаще всего было <b className="text-text">«{top?.label.toLowerCase()}»</b>. Отмечено{" "}
               <b className="text-text">{s.count} {plural(s.count, ["день", "дня", "дней"])}</b>, среднее —{" "}

@@ -71,7 +71,6 @@ function BottomNav() {
 
 function Sidebar() {
   const pathname = usePathname();
-  const openMood = useMoodSheet();
   const { profile } = useAuth();
   const { data: unread = 0 } = useUnread();
   return (
@@ -79,12 +78,6 @@ function Sidebar() {
       <Link href="/" className="mb-8 flex items-center gap-2.5 px-3">
         <Logo />
       </Link>
-      <button
-        onClick={() => openMood()}
-        className="mb-6 flex h-12 items-center justify-center gap-2 rounded-2xl bg-ink text-[15px] font-semibold text-ink-fg transition hover:opacity-90"
-      >
-        <Plus className="size-5" /> Отметить настроение
-      </button>
       <nav aria-label="Основная навигация" className="flex flex-col gap-1">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = isActive(href, pathname);
@@ -119,11 +112,11 @@ function Sidebar() {
   );
 }
 
-/** Плавающая кнопка «+» на мобильном */
+/** Плавающая кнопка «+» в дневнике (на главной есть своя крупная кнопка) */
 function Fab() {
   const openMood = useMoodSheet();
   const pathname = usePathname();
-  if (!["/", "/diary/"].includes(pathname.endsWith("/") ? pathname : `${pathname}/`)) return null;
+  if (!["/diary/"].includes(pathname.endsWith("/") ? pathname : `${pathname}/`)) return null;
   return (
     <button
       onClick={() => openMood()}
@@ -167,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <MoodSheetProvider>
       <Sidebar />
       <div className="pt-safe lg:pl-64">
-        <main className="mx-auto w-full max-w-xl px-4 pb-[calc(var(--nav-h)+env(safe-area-inset-bottom)+96px)] min-[380px]:px-5 md:max-w-2xl lg:max-w-5xl lg:px-10 lg:pb-16">
+        <main className="mx-auto w-full max-w-xl px-4 pb-[calc(var(--nav-h)+env(safe-area-inset-bottom)+96px)] min-[380px]:px-5 md:max-w-2xl lg:max-w-6xl lg:px-10 xl:px-14 lg:pb-16">
           {children}
         </main>
       </div>

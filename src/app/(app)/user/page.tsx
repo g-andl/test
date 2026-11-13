@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, UserPlus, Check, Clock3, BellOff, Bell, UserMinus } from "lucide-react";
+import { Lock, UserX, UserPlus, Check, Clock3, BellOff, Bell, UserMinus } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +21,7 @@ import { moodOf, dayPartOf } from "@/lib/mood";
 import { formatRelativeDay, formatTime } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import type { EntryLite } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 function UserProfile() {
   const params = useSearchParams();
@@ -71,7 +72,7 @@ function UserProfile() {
     );
   }
   if (prof.error) return <ErrorState text={humanError(prof.error)} onRetry={prof.refetch} />;
-  if (!p) return <EmptyState emoji="🤷" title="Пользователь не найден" text="Возможно, он сменил имя или удалил аккаунт" />;
+  if (!p) return <EmptyState icon={<UserX />} title="Пользователь не найден" text="Возможно, он сменил имя или удалил аккаунт" />;
 
   const latest = p.latest;
   const lm = latest ? moodOf(latest.mood_value) : null;
@@ -103,7 +104,7 @@ function UserProfile() {
   return (
     <>
       <PageHeader back title="" bell={false} />
-      <div className="grid gap-5 lg:grid-cols-[320px_1fr] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
         <div className="flex flex-col gap-4">
           <Card className="flex flex-col items-center text-center">
             <Avatar src={p.avatar_url} name={p.display_name} size={96} />
@@ -119,7 +120,7 @@ function UserProfile() {
             <section className="rounded-[24px] p-5" style={{ background: lm.soft }}>
               <p className="text-sm font-semibold text-text-2">Последнее настроение</p>
               <div className="mt-2 flex items-center gap-3">
-                <span className="emoji text-[44px]">{lm.emoji}</span>
+                <MoodEmoji value={lm.value} size={52} />
                 <div>
                   <p className="text-[22px] font-extrabold" style={{ color: lm.color }}>{lm.label}</p>
                   <p className="text-sm text-text-2">
@@ -134,11 +135,11 @@ function UserProfile() {
         <div className="flex min-w-0 flex-col gap-4">
           {p.relation !== "friends" ? (
             <Card>
-              <EmptyState emoji="🔒" title="Профиль виден только друзьям" text="Добавь пользователя в друзья, чтобы видеть его настроение" />
+              <EmptyState icon={<Lock />} title="Профиль виден только друзьям" text="Добавь пользователя в друзья, чтобы видеть его настроение" />
             </Card>
           ) : p.is_private ? (
             <Card>
-              <EmptyState emoji="🔒" title="Закрытый профиль" text={`${p.display_name} решил(а) не показывать своё настроение`} />
+              <EmptyState icon={<Lock />} title="Закрытый профиль" text={`${p.display_name} решил(а) не показывать своё настроение`} />
             </Card>
           ) : !canHistory ? (
             <Card className="flex items-center gap-3 text-sm text-text-2">

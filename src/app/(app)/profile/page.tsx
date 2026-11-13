@@ -30,7 +30,7 @@ export default function ProfilePage() {
   return (
     <>
       <PageHeader eyebrow="Аккаунт" title="Профиль" />
-      <div className="grid gap-4 lg:grid-cols-[340px_1fr] lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
         <Card className="flex flex-col items-center text-center">
           <Avatar src={profile.avatar_url} name={profile.display_name} size={96} />
           <h2 className="mt-3 text-[22px] font-extrabold tracking-tight">{profile.display_name}</h2>
@@ -45,7 +45,7 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card className="!p-3">
             <ListRow href="/settings/profile/" icon={<User className="size-5" />} label="Профиль" value="Имя, аватар" />
             <ListRow href="/settings/privacy/" icon={<Shield className="size-5" />} label="Приватность" />
