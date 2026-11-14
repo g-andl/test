@@ -14,8 +14,14 @@ export default function MySupportPage() {
       <PageHeader back title="Окно поддержки" bell={false} />
       <div className="flex flex-col gap-4 lg:max-w-2xl">
         <SupportWallCard userId={profile.id} ownerName={profile.display_name} own />
-        <Link href="/settings/privacy/" className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-surface text-[15px] font-semibold shadow-card">
-          <Settings2 className="size-5 text-accent" /> Кто может писать и видеть — в настройках приватности
+        <Link
+          href="/settings/privacy/"
+          className="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3.5 text-left text-[15px] font-semibold leading-snug shadow-card"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+            <Settings2 className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">Кто может писать и видеть — в настройках приватности</span>
         </Link>
       </div>
     </>
