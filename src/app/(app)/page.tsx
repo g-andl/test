@@ -8,6 +8,7 @@ import { TodayCard, TodayEntries } from "@/components/home/TodayCard";
 import { FriendsMoods } from "@/components/home/FriendsMoods";
 import { MonthSummary } from "@/components/home/MonthSummary";
 import { FriendsActivity } from "@/components/home/FriendsActivity";
+import { SupportPreview } from "@/components/support/SupportWall";
 import { useRouter } from "next/navigation";
 import { Skeleton, ErrorState } from "@/components/ui/States";
 import { useMyEntries } from "@/hooks/data";
@@ -45,6 +46,7 @@ export default function HomePage() {
   ) : (
     <>
       <TodayCard entries={today} onOpen={(mood) => openMood({ mood })} />
+      <SupportPreview />
       <TodayEntries entries={today} />
     </>
   );

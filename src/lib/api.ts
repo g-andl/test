@@ -348,11 +348,12 @@ export async function adminUnblockUser(userId: string) {
 }
 
 // ---------- Окно поддержки ----------
-export async function fetchSupportWall(userId: string): Promise<SupportWall> {
-  return check(await supabase.rpc("get_support_wall", { p_user: userId, p_limit: 100 })) as SupportWall;
+export async function fetchSupportWall(userId: string, limit = 100): Promise<SupportWall> {
+  return check(await supabase.rpc("get_support_wall", { p_user: userId, p_limit: limit })) as SupportWall;
 }
-export async function postSupportMessage(userId: string, body: string) {
-  check(await supabase.rpc("post_support_message", { p_user: userId, p_body: body }));
+/** parentId — ответ на сообщение или на ответ */
+export async function postSupportMessage(userId: string, body: string, parentId?: string | null) {
+  check(await supabase.rpc("post_support_message", { p_user: userId, p_body: body, p_parent: parentId ?? null }));
 }
 export async function deleteSupportMessage(id: string) {
   check(await supabase.rpc("delete_support_message", { p_id: id }));

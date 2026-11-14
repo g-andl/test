@@ -112,7 +112,12 @@ export interface SupportMessage {
   author_username: string;
   author_display_name: string;
   author_avatar_url: string | null;
+  /** Корневое сообщение ветки (у обычного сообщения null) и сообщение, на которое ответили */
+  parent_id: string | null;
+  reply_to_id: string | null;
+  reply_to_name: string | null;
   can_delete: boolean;
+  can_reply: boolean;
   /** Только для администратора */
   admin_created?: boolean | null;
   admin_edited?: boolean | null;
@@ -180,6 +185,7 @@ export type NotificationType =
   | "request_accepted"
   | "request_declined"
   | "support_message"
+  | "support_reply"
   | "new_friend"
   | "friend_mood"
   | "friend_mood_updated";
@@ -190,7 +196,7 @@ export interface NotificationRow {
   actor_id: string | null;
   type: NotificationType;
   reference_id: string | null;
-  data: { mood_value?: MoodValue; entry_date?: string };
+  data: { mood_value?: MoodValue; entry_date?: string; wall?: string };
   is_read: boolean;
   created_at: string;
   actor?: Pick<Profile, "id" | "username" | "display_name" | "avatar_url"> | null;

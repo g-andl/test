@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { CheckCheck, Settings, Bell, BellOff } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -26,6 +27,8 @@ function notificationText(n: NotificationRow): { text: React.ReactNode; mood?: n
       return { text: <>{name} принял(а) твою заявку в друзья</> };
     case "support_message":
       return { text: <>{name} оставил(а) тебе сообщение в окне поддержки</> };
+    case "support_reply":
+      return { text: <>{name} ответил(а) в окне поддержки</> };
     case "request_declined":
       return { text: <>{name} отклонил(а) твою заявку в друзья</> };
     case "new_friend":
@@ -42,6 +45,7 @@ function notificationText(n: NotificationRow): { text: React.ReactNode; mood?: n
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const { profile: me } = useAuth();
   const toast = useToast();
   const q = useQuery(keys.notifications, fetchNotifications);
   const settings = useQuery(keys.notifSettings, fetchNotifSettings);
@@ -55,6 +59,11 @@ export default function NotificationsPage() {
     }
     if (n.type === "friend_request") router.push("/friends/");
     else if (n.type === "support_message") router.push("/support/");
+    else if (n.type === "support_reply") {
+      // Ответ в чужом окне ведёт на профиль владельца, в своём — на страницу сообщений
+      const wall = (n.data as { wall?: string } | null)?.wall;
+      router.push(wall && wall !== me?.username ? `/user/?u=${wall}` : "/support/");
+    }
     else if (n.actor) router.push(`/user/?u=${n.actor.username}`);
   }
 
