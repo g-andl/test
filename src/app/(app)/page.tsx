@@ -17,14 +17,6 @@ import { useMyEntries } from "@/hooks/data";
 import { capitalize, formatLong, todayKey } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 6) return "Доброй ночи";
-  if (h < 12) return "Доброе утро";
-  if (h < 18) return "Добрый день";
-  return "Добрый вечер";
-}
-
 export default function HomePage() {
   const { profile } = useAuth();
   const openMood = useMoodSheet();
@@ -58,7 +50,7 @@ export default function HomePage() {
 
   return (
     <>
-      <PageHeader eyebrow={capitalize(formatLong(new Date()))} title={`${greeting()}, ${firstName}!`} />
+      <PageHeader eyebrow={capitalize(formatLong(new Date()))} title={`Привет, ${firstName}!`} />
       {/* Телефон: одна колонка — отметка, сегодня, друзья, месяц, неделя */}
       <div className="flex flex-col gap-5 lg:hidden">
         {todayBlock}
