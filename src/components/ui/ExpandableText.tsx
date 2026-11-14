@@ -20,7 +20,13 @@ export function ExpandableText({ text, lines = 4, className = "" }: { text: stri
 
   return (
     <div className="min-w-0">
-      <p ref={ref} className={`whitespace-pre-line break-words ${expanded ? "" : clamp} ${className}`}>{text}</p>
+      <p
+        ref={ref}
+        onClick={() => (overflow || expanded) && setExpanded((v) => !v)}
+        className={`whitespace-pre-line break-words ${expanded ? "" : clamp} ${overflow || expanded ? "cursor-pointer" : ""} ${className}`}
+      >
+        {text}
+      </p>
       {(overflow || expanded) && (
         <button
           type="button"
