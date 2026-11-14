@@ -111,12 +111,10 @@ test('прямой доступ к таблице закрыт', async () => {
   assert.ok(ins.error);
 });
 
-test('защита от спама: 3 сообщения в час одному человеку', async () => {
+test('лимита на 3 сообщения в час нет: можно писать подряд', async () => {
   const spammer = await mk('spm');
-  for (let i = 0; i < 3; i++) assert.ifError((await post(spammer, owner, `сообщение ${i}`)).error);
-  const r = await post(spammer, owner, 'четвёртое');
-  assert.ok(r.error);
-  assert.match(r.error.message, /Слишком часто/);
+  for (let i = 0; i < 8; i++) assert.ifError((await post(spammer, owner, `сообщение ${i}`)).error);
+  assert.equal((await wall(owner, owner)).messages.filter((m) => m.author_id === spammer.id).length, 8);
 });
 
 test('удаление: автор, получатель и админ — да, посторонний — нет', async () => {
@@ -275,15 +273,18 @@ test('ответы: удаление ветки убирает ответы и �
   assert.equal(left.length, 0, 'уведомления тоже');
 });
 
-test('ответы: лимиты, заблокированный и админ', async () => {
+test('ответы без лимита; блокированный и админ не пишут; остаётся только предохранитель от скриптов', async () => {
   const o = await mk('lto'), a = await mk('lta');
   const { data: root } = await post(a, o, 'Корень');
-  for (let i = 0; i < 30; i++) assert.ifError((await reply(o, o, root, `ответ ${i}`)).error);
-  const r = await reply(o, o, root, 'тридцать первый');
-  assert.ok(r.error);
-  assert.match(r.error.message, /Слишком часто/);
+  for (let i = 0; i < 40; i++) assert.ifError((await reply(o, o, root, `ответ ${i}`)).error);
   const bad = await mk('ltb');
   await admin.from('user_blocks').insert({ user_id: bad.id, blocked_until: null, reason: 'тест' });
   assert.ok((await reply(bad, o, root, 'от заблокированного')).error);
   assert.ok((await reply(boss, o, root, 'от админа')).error, 'админ сам не пишет, только модерирует');
+  // Предохранитель: после 100 сообщений в час — пауза (скрипты)
+  const rows = Array.from({ length: 60 }, (_, i) => ({ recipient_id: o.id, author_id: o.id, body: `серия ${i}`, parent_id: root, reply_to_id: root }));
+  await admin.from('support_messages').insert(rows);
+  const r = await reply(o, o, root, 'сто первое');
+  assert.ok(r.error, 'после 100 за час — отказ');
+  assert.match(r.error.message, /Слишком много/);
 });
