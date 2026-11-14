@@ -74,15 +74,15 @@ function Composer({
         aria-label={label ?? placeholder}
         className="w-full resize-none rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
       />
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <span className="text-xs text-muted">{text.length}/500</span>
-        <div className="flex gap-2">
+        <div className="ml-auto flex shrink-0 gap-2">
           {onCancel && (
             <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>
               Отмена
             </Button>
           )}
-          <Button size="sm" variant="accent" disabled={!text.trim() || (initial !== "" && text.trim() === initial.trim())} loading={busy} onClick={send}>
+          <Button size="sm" variant="accent" className="whitespace-nowrap" disabled={!text.trim() || (initial !== "" && text.trim() === initial.trim())} loading={busy} onClick={send}>
             <Send className="size-4" /> {submitLabel}
           </Button>
         </div>
@@ -183,7 +183,7 @@ function ThreadView({ thread, userId, onChanged }: { thread: Thread; userId: str
         placeholder={`Ответ для ${to.author_display_name}`}
         // Ответ на ответ начинаем с имени, как во ВК
         initial={to.parent_id ? `${to.author_display_name}, ` : ""}
-        submitLabel="Отправить ответ"
+        submitLabel="Отправить"
         rows={2}
         autoFocus
         onSend={sendReply}
@@ -195,13 +195,13 @@ function ThreadView({ thread, userId, onChanged }: { thread: Thread; userId: str
   return (
     <li className="rounded-[22px] bg-surface-2 p-3.5">
       <Message m={root} onReply={() => setReplyTo(root)} onDeleted={onChanged} />
-      {replyTo?.id === root.id && <div className="pl-[52px]">{composer(root)}</div>}
+      {replyTo?.id === root.id && <div className="sm:pl-[52px]">{composer(root)}</div>}
       {replies.length > 0 && (
         <ul className="mt-2 flex flex-col gap-3 border-l-2 border-line pl-3 sm:ml-5">
           {replies.map((r) => (
             <li key={r.id}>
               <Message m={r} small onReply={() => setReplyTo(r)} onDeleted={onChanged} />
-              {replyTo?.id === r.id && <div className="pl-11">{composer(r)}</div>}
+              {replyTo?.id === r.id && <div className="sm:pl-11">{composer(r)}</div>}
             </li>
           ))}
         </ul>
