@@ -1,6 +1,8 @@
 "use client";
-import { useEffect } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Sheet } from "@/components/ui/Sheet";
+import { StatsView } from "@/components/stats/StatsView";
 import { BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -22,6 +24,7 @@ export default function HomePage() {
   const openMood = useMoodSheet();
   const router = useRouter();
   const { entries, byDate, dayAgg, loading, error, refetch } = useMyEntries();
+  const [statsOpen, setStatsOpen] = useState(false);
   const today = byDate.get(todayKey()) ?? [];
   const firstName = profile?.display_name.split(" ")[0] ?? "";
 
@@ -57,13 +60,13 @@ export default function HomePage() {
         <FriendsMoods />
         {monthBlock}
         {weekBlock}
-        <Link
-          href="/stats/"
-          className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface text-[15px] font-semibold text-accent transition active:scale-[0.98]"
-        >
-          <BarChart3 className="size-5" /> Полная статистика
-        </Link>
+        <Button variant="outline" size="lg" onClick={() => setStatsOpen(true)}>
+          <BarChart3 className="size-5" /> Статистика
+        </Button>
       </div>
+      <Sheet open={statsOpen} onClose={() => setStatsOpen(false)} title="Статистика" wide>
+        <StatsView entries={entries} showInsights={false} />
+      </Sheet>
       {/* Компьютер: слева отметка, сегодня и друзья, справа месяц и лента; неделя — внизу на всю ширину */}
       <div className="hidden gap-6 lg:grid lg:grid-cols-12 lg:items-start">
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-7">
