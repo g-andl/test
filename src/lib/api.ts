@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import type {
   ActivityRow, EntryLite, FriendRequest, FriendRow, MoodEntry, NotificationRow,
   NotificationSettings, PrivacySettings, Profile, UserProfileView, DayPart, MoodValue,
-  AdminUser, RecoveryRequest,
+  AdminUser, RecoveryRequest, BlockStatus, SupportWall, Badge,
 } from "./types";
 import { compressImage } from "./image";
 
@@ -24,6 +24,8 @@ export const keys = {
   notifSettings: "notifSettings",
   user: (username: string) => `user:${username}`,
   userEntries: (id: string) => `userEntries:${id}`,
+  support: (id: string) => `support:${id}`,
+  badges: "badges",
   photo: (path: string) => `photo:${path}`,
 };
 
@@ -236,12 +238,23 @@ export function makeLoginEmail() {
   return `u_${rnd}@${LOGIN_DOMAIN}`;
 }
 
-/** Имя пользователя или почта → адрес для входа */
+/** Имя пользователя или почта → служебный адрес для входа (ищет база) */
 export async function resolveLoginEmail(login: string): Promise<string | null> {
-  const v = login.trim().toLowerCase().replace(/^@/, "");
-  if (v.includes("@")) return v;
+  const v = login.trim().toLowerCase();
+  if (!v) return null;
   return (check(await supabase.rpc("login_email", { p_username: v })) as string | null) ?? null;
 }
+
+/** Почта для восстановления (видят только владелец и администратор) */
+export async function fetchContactEmail(): Promise<string | null> {
+  const { data, error } = await supabase.from("user_contacts").select("email").maybeSingle();
+  if (error) throw error;
+  return (data?.email as string | null) ?? null;
+}
+export async function updateContactEmail(uid: string, email: string) {
+  check(await supabase.from("user_contacts").update({ email: email.trim().toLowerCase() }).eq("user_id", uid));
+}
+export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export async function submitRecoveryRequest(username: string, contact: string, message: string) {
   check(await supabase.rpc("submit_recovery_request", { p_username: username, p_contact: contact, p_message: message }));
@@ -259,6 +272,36 @@ export async function adminUserEntries(userId: string): Promise<MoodEntry[]> {
 }
 export async function adminUpdateEntry(entryId: string, mood: number, note: string) {
   check(await supabase.rpc("admin_update_entry", { p_entry: entryId, p_mood: mood, p_note: note }));
+}
+/** Отметка за пользователя (дата и время — по часовому поясу администратора) */
+export async function adminCreateEntry(userId: string, date: string, time: Date, part: DayPart, mood: number, note: string) {
+  check(
+    await supabase.rpc("admin_create_entry", {
+      p_user: userId, p_date: date, p_time: time.toISOString(), p_part: part, p_mood: mood, p_note: note,
+    }),
+  );
+}
+export async function adminSetContactEmail(userId: string, email: string) {
+  check(await supabase.rpc("admin_set_contact_email", { p_user: userId, p_email: email }));
+}
+export async function adminUpdatePrivacy(userId: string, visibility: string, photos: boolean) {
+  check(await supabase.rpc("admin_update_privacy", { p_user: userId, p_visibility: visibility, p_photos: photos }));
+}
+export async function adminUserPrivacy(userId: string): Promise<{ public_visibility: string; photos_public: boolean } | null> {
+  const rows = (check(await supabase.rpc("admin_user_privacy", { p_user: userId })) ?? []) as { public_visibility: string; photos_public: boolean }[];
+  return rows[0] ?? null;
+}
+export interface ActivitySession { id: string; started_at: string; last_seen_at: string; user_agent: string | null }
+export async function adminUserActivity(userId: string, from?: string, to?: string): Promise<ActivitySession[]> {
+  return (check(await supabase.rpc("admin_user_activity", { p_user: userId, p_from: from ?? null, p_to: to ?? null })) ?? []) as ActivitySession[];
+}
+export async function touchActivity() {
+  // Тихо; отсутствие сессии (вышел из системы) не должно показывать ошибку
+  try {
+    await supabase.rpc("touch_activity", { p_user_agent: navigator.userAgent });
+  } catch {
+    /* не критично */
+  }
 }
 export async function adminDeleteEntry(entry: MoodEntry) {
   if (entry.photo_path) await supabase.storage.from("mood-photos").remove([entry.photo_path]);
@@ -285,6 +328,75 @@ export async function adminDeleteUser(userId: string) {
 export async function adminListRecovery(): Promise<RecoveryRequest[]> {
   return (check(await supabase.rpc("admin_list_recovery")) ?? []) as RecoveryRequest[];
 }
+export async function adminDeleteRecovery(id: string) {
+  check(await supabase.rpc("admin_delete_recovery", { p_id: id }));
+}
 export async function adminUpdateRecovery(id: string, status: RecoveryRequest["status"], note: string) {
   check(await supabase.rpc("admin_update_recovery", { p_id: id, p_status: status, p_note: note }));
+}
+
+// ---------- Блокировка аккаунтов ----------
+export async function fetchBlockStatus(): Promise<BlockStatus> {
+  return check(await supabase.rpc("my_block_status")) as BlockStatus;
+}
+/** until = null — навсегда */
+export async function adminBlockUser(userId: string, until: string | null, reason: string) {
+  check(await supabase.rpc("admin_block_user", { p_user: userId, p_until: until, p_reason: reason }));
+}
+export async function adminUnblockUser(userId: string) {
+  check(await supabase.rpc("admin_unblock_user", { p_user: userId }));
+}
+
+// ---------- Окно поддержки ----------
+export async function fetchSupportWall(userId: string): Promise<SupportWall> {
+  return check(await supabase.rpc("get_support_wall", { p_user: userId, p_limit: 100 })) as SupportWall;
+}
+export async function postSupportMessage(userId: string, body: string) {
+  check(await supabase.rpc("post_support_message", { p_user: userId, p_body: body }));
+}
+export async function deleteSupportMessage(id: string) {
+  check(await supabase.rpc("delete_support_message", { p_id: id }));
+}
+export async function adminEditSupportMessage(id: string, body: string) {
+  check(await supabase.rpc("admin_edit_support_message", { p_id: id, p_body: body }));
+}
+export async function adminPostSupportMessage(recipientId: string, authorUsername: string, body: string) {
+  check(await supabase.rpc("admin_post_support_message", { p_recipient: recipientId, p_author_username: authorUsername, p_body: body }));
+}
+
+// ---------- Статусы пользователей ----------
+export interface BadgeData {
+  list: Badge[];
+  /** пользователь → его статус */
+  byUser: Record<string, Badge>;
+  /** сколько у каждого статуса владельцев */
+  counts: Record<string, number>;
+}
+export async function fetchBadgeData(): Promise<BadgeData> {
+  const [b, ub] = await Promise.all([
+    supabase.from("badges").select("id, name, color").order("created_at"),
+    supabase.from("user_badges").select("user_id, badge_id"),
+  ]);
+  if (b.error) throw b.error;
+  if (ub.error) throw ub.error;
+  const list = (b.data ?? []) as Badge[];
+  const byId = new Map(list.map((x) => [x.id, x]));
+  const byUser: Record<string, Badge> = {};
+  const counts: Record<string, number> = {};
+  for (const r of ub.data ?? []) {
+    const badge = byId.get(r.badge_id as string);
+    if (!badge) continue;
+    byUser[r.user_id as string] = badge;
+    counts[badge.id] = (counts[badge.id] ?? 0) + 1;
+  }
+  return { list, byUser, counts };
+}
+export async function adminSaveBadge(id: string | null, name: string, color: string): Promise<string> {
+  return check(await supabase.rpc("admin_save_badge", { p_id: id, p_name: name, p_color: color })) as string;
+}
+export async function adminDeleteBadge(id: string) {
+  check(await supabase.rpc("admin_delete_badge", { p_id: id }));
+}
+export async function adminSetUserBadge(userId: string, badgeId: string | null) {
+  check(await supabase.rpc("admin_set_user_badge", { p_user: userId, p_badge: badgeId }));
 }

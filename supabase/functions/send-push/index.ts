@@ -28,6 +28,8 @@ function message(type: string, name: string, mood?: number) {
       return { title: "Новая заявка в друзья", body: `${name} хочет добавить тебя в друзья` };
     case "request_accepted":
       return { title: "Заявка принята", body: `${name} теперь в твоих друзьях` };
+    case "support_message":
+      return { title: "Окно поддержки", body: `${name} оставил(а) тебе сообщение` };
     case "request_declined":
       return { title: "Заявка отклонена", body: `${name} отклонил(а) твою заявку в друзья` };
     case "new_friend":
@@ -83,7 +85,7 @@ Deno.serve(async (req) => {
   const actor = n.actor as unknown as { username: string; display_name: string } | null;
   const name = actor?.display_name ?? "Друг";
   const { title, body } = message(n.type, name, (n.data as { mood_value?: number })?.mood_value);
-  const path = n.type === "friend_request" ? "/friends/" : actor ? `/user/?u=${actor.username}` : "/notifications/";
+  const path = n.type === "friend_request" ? "/friends/" : n.type === "support_message" ? "/support/" : actor ? `/user/?u=${actor.username}` : "/notifications/";
   const payload = JSON.stringify({ title, body, url: `${APP_URL}${path}`, tag: `${n.type}-${actor?.username ?? ""}`, unread: unread ?? 0 });
 
   let sent = 0;

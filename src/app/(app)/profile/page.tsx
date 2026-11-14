@@ -1,9 +1,10 @@
 "use client";
-import { User, Shield, Bell, KeyRound, LogOut, Sun, Moon, Monitor, FileText } from "lucide-react";
+import { User, Shield, Bell, KeyRound, LogOut, Sun, Moon, Monitor, FileText, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
+import { StatusBadge } from "@/components/badges/StatusBadge";
 import { ListRow } from "@/components/ui/ListRow";
 import { Segmented } from "@/components/ui/Segmented";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -35,6 +36,7 @@ export default function ProfilePage() {
           <Avatar src={profile.avatar_url} name={profile.display_name} size={96} />
           <h2 className="mt-3 text-[22px] font-extrabold tracking-tight">{profile.display_name}</h2>
           <p className="text-muted">@{profile.username}</p>
+          <StatusBadge userId={profile.id} className="mt-2 !text-xs" />
           <div className="mt-5 grid w-full grid-cols-3 gap-2">
             {stats.map((s) => (
               <div key={s.label} className="rounded-2xl bg-surface-2 px-2 py-3">
@@ -48,6 +50,7 @@ export default function ProfilePage() {
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="!p-3">
             <ListRow href="/settings/profile/" icon={<User className="size-5" />} label="Профиль" value="Имя, аватар" />
+            <ListRow href="/support/" icon={<Heart className="size-5" />} label="Окно поддержки" value="Тёплые слова" />
             <ListRow href="/settings/privacy/" icon={<Shield className="size-5" />} label="Приватность" />
             <ListRow href="/settings/notifications/" icon={<Bell className="size-5" />} label="Уведомления" />
             <ListRow href="/settings/account/" icon={<KeyRound className="size-5" />} label="Аккаунт" value="Пароль, удаление" />

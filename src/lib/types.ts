@@ -16,6 +16,8 @@ export interface Profile {
 export interface AdminUser {
   id: string;
   email: string;
+  /** Почта для восстановления */
+  contact_email: string | null;
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
@@ -25,7 +27,17 @@ export interface AdminUser {
   friends_count: number;
   public_visibility: string | null;
   is_admin: boolean;
+  is_blocked: boolean;
+  /** null при is_blocked = true означает «навсегда» */
+  blocked_until: string | null;
+  block_reason: string | null;
   total: number;
+}
+
+export interface BlockStatus {
+  blocked: boolean;
+  until?: string | null;
+  reason?: string | null;
 }
 
 export interface RecoveryRequest {
@@ -71,6 +83,37 @@ export interface PrivacySettings {
   user_id: string;
   public_visibility: "all" | "latest" | "none";
   photos_public: boolean;
+  /** Окно поддержки: кто может писать / кто видит сообщения */
+  support_write: "all" | "friends" | "none";
+  support_view: "all" | "friends" | "owner";
+}
+
+/** Статус пользователя: цветная пометка рядом с именем */
+export interface Badge {
+  id: string;
+  name: string;
+  color: string; // #rrggbb
+}
+
+export interface SupportMessage {
+  id: string;
+  body: string;
+  created_at: string;
+  author_id: string;
+  author_username: string;
+  author_display_name: string;
+  author_avatar_url: string | null;
+  can_delete: boolean;
+  /** Только для администратора */
+  admin_created?: boolean | null;
+  admin_edited?: boolean | null;
+}
+
+export interface SupportWall {
+  can_view: boolean;
+  can_write: boolean;
+  total: number;
+  messages: SupportMessage[];
 }
 
 /** Среднее настроение за день и число отметок */
@@ -127,6 +170,7 @@ export type NotificationType =
   | "friend_request"
   | "request_accepted"
   | "request_declined"
+  | "support_message"
   | "new_friend"
   | "friend_mood"
   | "friend_mood_updated";

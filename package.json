@@ -12,7 +12,11 @@
     "typecheck": "tsc --noEmit",
     "test:push": "node --test tests/backend/push.test.mjs",
     "test:admin": "node --test tests/backend/admin.test.mjs",
-    "test:e2e:admin": "node tests/e2e/admin.mjs"
+    "test:e2e:admin": "node tests/e2e/admin.mjs",
+    "test:support": "node --test tests/backend/support.test.mjs",
+    "test:e2e:support": "node tests/e2e/support.mjs",
+    "test:badges": "node --test tests/backend/badges.test.mjs",
+    "test:e2e:badges": "node tests/e2e/badges.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

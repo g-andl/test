@@ -9,19 +9,38 @@ import { Sheet } from "@/components/ui/Sheet";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { supabase } from "@/lib/supabase";
-import { deleteAccount, LOGIN_DOMAIN } from "@/lib/api";
+import { deleteAccount, fetchContactEmail, updateContactEmail, EMAIL_RE } from "@/lib/api";
+import { useQuery, setQueryData } from "@/lib/query";
 import { humanError } from "@/lib/errors";
 
 export default function AccountPage() {
   const { session, profile, signOut } = useAuth();
   const toast = useToast();
   const router = useRouter();
+  const contact = useQuery(session ? "contact-email" : null, fetchContactEmail);
+  const [mail, setMail] = useState<string | null>(null);
+  const [mailBusy, setMailBusy] = useState(false);
+  const mailValue = mail ?? contact.data ?? "";
+  const mailValid = EMAIL_RE.test(mailValue.trim());
+  async function saveMail() {
+    if (!session || !mailValid) return;
+    setMailBusy(true);
+    try {
+      await updateContactEmail(session.user.id, mailValue);
+      setQueryData("contact-email", () => mailValue.trim().toLowerCase());
+      setMail(null);
+      toast("Почта сохранена");
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setMailBusy(false);
+    }
+  }
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [delOpen, setDelOpen] = useState(false);
-  const [confirm, setConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   async function changePassword(e: React.FormEvent) {
@@ -44,7 +63,7 @@ export default function AccountPage() {
   }
 
   async function onDelete() {
-    if (!session || confirm !== profile?.username) return;
+    if (!session) return;
     setDeleting(true);
     try {
       await deleteAccount(session.user.id);
@@ -61,11 +80,24 @@ export default function AccountPage() {
       <PageHeader back title="Аккаунт" bell={false} />
       <div className="flex max-w-xl flex-col gap-4">
         <Card>
-          <p className="text-[13px] text-muted">Логин для входа</p>
+          <p className="text-[13px] text-muted">Имя пользователя</p>
           <p className="text-[15px] font-semibold">@{profile?.username}</p>
-          {session?.user.email && !session.user.email.endsWith(`@${LOGIN_DOMAIN}`) && (
-            <p className="mt-1 text-[13px] text-muted">или почта {session.user.email}</p>
-          )}
+          <p className="mt-3 text-[13px] text-muted">Почта для входа и восстановления</p>
+          <div className="mt-1 flex gap-2">
+            <input
+              type="email"
+              value={mailValue}
+              onChange={(e) => setMail(e.target.value)}
+              placeholder="не указана"
+              aria-label="Почта"
+              autoCapitalize="none"
+              className="h-11 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+            />
+            <Button size="sm" disabled={!mailValid || mailValue.trim().toLowerCase() === (contact.data ?? "")} loading={mailBusy} onClick={saveMail}>
+              Сохранить
+            </Button>
+          </div>
+          <p className="mt-1.5 text-[12px] text-muted">Писем и кодов мы не отправляем: почта нужна, чтобы тебя можно было найти при восстановлении доступа.</p>
         </Card>
         <Card>
           <p className="mb-4 text-[15px] font-bold">Сменить пароль</p>
@@ -93,15 +125,19 @@ export default function AccountPage() {
         onClose={() => setDelOpen(false)}
         title="Удалить аккаунт?"
         footer={
-          <Button variant="danger" block size="lg" loading={deleting} disabled={confirm !== profile?.username} onClick={onDelete}>
-            Удалить навсегда
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" size="lg" onClick={() => setDelOpen(false)} disabled={deleting}>
+              Отмена
+            </Button>
+            <Button variant="danger" className="flex-1" size="lg" loading={deleting} onClick={onDelete}>
+              Точно удалить?
+            </Button>
+          </div>
         }
       >
-        <p className="mb-4 text-text-2">
-          Это действие необратимо. Чтобы подтвердить, введи своё имя пользователя: <b className="text-text">{profile?.username}</b>
+        <p className="text-text-2">
+          Удалятся все отметки, фото, друзья и уведомления аккаунта <b className="text-text">@{profile?.username}</b>. Восстановить их будет нельзя.
         </p>
-        <Field label="Имя пользователя" value={confirm} autoCapitalize="none" onChange={(e) => setConfirm(e.target.value.trim().toLowerCase())} />
       </Sheet>
     </>
   );

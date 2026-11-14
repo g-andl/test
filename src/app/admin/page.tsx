@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound } from "lucide-react";
+import { Search, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
+import { Field } from "@/components/ui/Field";
 import { Avatar } from "@/components/ui/Avatar";
+import { StatusBadge, BadgePill, useBadges } from "@/components/badges/StatusBadge";
+import { BadgeForm } from "@/components/badges/BadgeEditor";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/States";
@@ -12,7 +15,7 @@ import { AdminUserSheet, fmtDateTime } from "@/components/admin/AdminUserSheet";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
-import { adminListUsers, adminListRecovery, adminUpdateRecovery } from "@/lib/api";
+import { adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery, adminSaveBadge, adminDeleteBadge } from "@/lib/api";
 import { humanError } from "@/lib/errors";
 import { plural } from "@/lib/dates";
 import type { AdminUser, RecoveryRequest } from "@/lib/types";
@@ -36,7 +39,27 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
   const toast = useToast();
   const [note, setNote] = useState(r.admin_note ?? "");
   const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const href = contactHref(r.contact);
+
+  // Подтверждение удаления само сбрасывается через 3 секунды
+  useEffect(() => {
+    if (!confirmDel) return;
+    const t = setTimeout(() => setConfirmDel(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmDel]);
+
+  async function remove() {
+    setBusy(true);
+    try {
+      await adminDeleteRecovery(r.id);
+      invalidate("admin-recovery");
+      toast("Заявка удалена");
+    } catch (e) {
+      toast(humanError(e), "error");
+      setBusy(false);
+    }
+  }
 
   async function set(status: RecoveryRequest["status"]) {
     setBusy(true);
@@ -58,13 +81,13 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
         <span className="text-xs text-muted">{fmtDateTime(r.created_at)}</span>
       </div>
       <p className="mt-2 text-[15px]">
-        <b>@{r.username}</b>{" "}
+        <b>{r.username.includes("@") && !r.username.startsWith("@") ? r.username : `@${r.username.replace(/^@/, "")}`}</b>{" "}
         {r.user_id ? (
           <button onClick={() => onOpenUser(r.username)} className="ml-1 inline-flex items-center gap-1 text-sm font-semibold text-accent">
             <UserRound className="size-4" /> открыть аккаунт
           </button>
         ) : (
-          <span className="text-sm text-danger">аккаунт с таким именем не найден</span>
+          <span className="text-sm text-danger">аккаунт не найден</span>
         )}
       </p>
       <p className="mt-1 text-[15px]">
@@ -98,57 +121,115 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
         {note !== (r.admin_note ?? "") && (
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => set(r.status)}>Сохранить заметку</Button>
         )}
+        {confirmDel ? (
+          <Button size="sm" variant="danger" loading={busy} className="ml-auto" onClick={remove}>Точно удалить?</Button>
+        ) : (
+          <Button size="sm" variant="ghost" disabled={busy} className="ml-auto" aria-label="Удалить заявку" onClick={() => setConfirmDel(true)}>
+            <Trash2 className="size-4" /> Удалить
+          </Button>
+        )}
       </div>
     </li>
   );
 }
 
-/** Смена пароля самого администратора */
-function OwnPassword() {
+/** Настройки администратора: смена своего пароля */
+function AdminSettings() {
   const toast = useToast();
-  const [open, setOpen] = useState(false);
   const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
-  if (!open) {
-    return (
-      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
-        <KeyRound className="size-4" /> Мой пароль
-      </Button>
-    );
-  }
+  const mismatch = pw2.length > 0 && pw !== pw2;
   return (
-    <form
-      className="flex w-full gap-2 sm:w-auto"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (pw.length < 8) return;
-        setBusy(true);
-        const { error } = await supabase.auth.updateUser({ password: pw });
-        setBusy(false);
-        if (error) return toast(humanError(error), "error");
-        toast("Твой пароль изменён");
-        setPw("");
-        setOpen(false);
-      }}
-    >
-      <input
-        type="password"
-        value={pw}
-        onChange={(e) => setPw(e.target.value)}
-        placeholder="Новый пароль, от 8 символов"
-        aria-label="Мой новый пароль"
-        autoComplete="new-password"
-        className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-sm outline-none focus:ring-2 focus:ring-accent sm:w-56"
-      />
-      <Button size="sm" type="submit" disabled={pw.length < 8} loading={busy}>Сменить</Button>
-    </form>
+    <section className="max-w-md rounded-[22px] bg-surface p-5 shadow-card">
+      <h2 className="mb-1 flex items-center gap-2 text-[17px] font-bold"><KeyRound className="size-5 text-accent" /> Сменить мой пароль</h2>
+      <p className="mb-4 text-[13px] text-muted">Пароль администратора. Не короче 8 символов.</p>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (pw.length < 8 || pw !== pw2) return;
+          setBusy(true);
+          const { error } = await supabase.auth.updateUser({ password: pw });
+          setBusy(false);
+          if (error) return toast(humanError(error), "error");
+          toast("Пароль изменён");
+          setPw("");
+          setPw2("");
+        }}
+      >
+        <input type="text" autoComplete="username" value="admin" readOnly hidden />
+        <Field label="Новый пароль" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <Field label="Повтори пароль" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} error={mismatch ? "Пароли не совпадают" : null} />
+        <Button type="submit" disabled={pw.length < 8 || pw !== pw2} loading={busy}>Сохранить пароль</Button>
+      </form>
+    </section>
+  );
+}
+
+/** Управление статусами: создать, изменить название и цвет, удалить */
+function BadgesTab() {
+  const toast = useToast();
+  const badges = useBadges();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function run(key: string, fn: () => Promise<unknown>, ok: string) {
+    setBusy(key);
+    try {
+      await fn();
+      toast(ok);
+      invalidate("badges");
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+  const list = badges.data?.list ?? [];
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <section className="rounded-[22px] bg-surface p-4 shadow-card md:col-span-2">
+        <h2 className="mb-1 text-[17px] font-bold">Новый статус</h2>
+        <p className="mb-3 text-[13px] text-muted">Придумай название и выбери цвет. Потом выдай его пользователю в его карточке.</p>
+        <BadgeForm key={list.length} submitLabel="Создать" busy={busy === "new"} onSubmit={(name, color) => run("new", () => adminSaveBadge(null, name, color), "Статус создан")} />
+      </section>
+      <section className="md:col-span-2">
+        <h2 className="mb-2 text-[17px] font-bold">Все статусы {list.length ? `(${list.length})` : ""}</h2>
+        <p className="mb-3 flex items-center gap-2 text-[13px] text-muted">
+          У администратора встроенная пометка <BadgePill name="Администратор" color="#4d8df7" />
+        </p>
+        {badges.loading ? (
+          <Skeleton className="h-32" />
+        ) : !list.length ? (
+          <EmptyState icon={<ShieldCheck />} title="Статусов пока нет" text="Создай первый выше" />
+        ) : (
+          <ul className="grid gap-3 md:grid-cols-2">
+            {list.map((b) => (
+              <li key={b.id + b.name + b.color} className="rounded-[22px] bg-surface p-4 shadow-card">
+                <BadgeForm
+                  initialName={b.name}
+                  initialColor={b.color}
+                  submitLabel="Сохранить"
+                  busy={busy === b.id}
+                  holders={badges.data?.counts[b.id]}
+                  onSubmit={(name, color) => run(b.id, () => adminSaveBadge(b.id, name, color), "Статус изменён")}
+                  onDelete={() => run(b.id, () => adminDeleteBadge(b.id), "Статус удалён")}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }
 
 export default function AdminPage() {
   const { ready, session, profile, signOut } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<"users" | "recovery">("users");
+  const [tab, setTab] = useState<"users" | "recovery" | "badges" | "settings">("users");
+  const [reqTab, setReqTab] = useState<RecoveryRequest["status"]>("new");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(50);
@@ -165,7 +246,26 @@ export default function AdminPage() {
 
   const users = useQuery(isAdmin ? `admin-users:${search}:${limit}` : null, () => adminListUsers(search, limit));
   const recovery = useQuery(isAdmin ? "admin-recovery" : null, adminListRecovery);
-  const newCount = recovery.data?.filter((r) => r.status === "new").length ?? 0;
+  const count = (st: RecoveryRequest["status"]) => recovery.data?.filter((r) => r.status === st).length ?? 0;
+  const newCount = count("new");
+  const requestsShown = recovery.data?.filter((r) => r.status === reqTab) ?? [];
+
+  // Заявки и аккаунты обновляются сами: при переходе на вкладку и каждые 20 секунд
+  const refetchRecovery = recovery.refetch;
+  const refetchUsers = users.refetch;
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (tab === "recovery") refetchRecovery();
+    else refetchUsers();
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refetchRecovery();
+        if (tab === "users") refetchUsers();
+      }
+    }, 20000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- перезапускаем только при смене вкладки
+  }, [tab, isAdmin]);
 
   // Обновляем карточку открытого пользователя после правок
   useEffect(() => {
@@ -218,24 +318,37 @@ export default function AdminPage() {
 
       <main className="mx-auto max-w-5xl px-4 pb-16 pt-6 sm:px-6">
         <h1 className="text-[28px] font-extrabold tracking-tight">Админ-панель</h1>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-muted">Вошёл как {profile.display_name} (@{profile.username})</p>
-          <OwnPassword />
-        </div>
+        <p className="mb-4 text-sm text-muted">Вошёл как {profile.display_name} (@{profile.username})</p>
 
+        <div className="mb-4 flex items-center gap-2">
         <Segmented
           ariaLabel="Раздел"
           stretch
-          className="mb-4 sm:max-w-md"
+          className="flex-1 sm:max-w-md"
           value={tab}
           onChange={setTab}
           options={[
             { value: "users", label: `Пользователи${total ? ` · ${total}` : ""}` },
             { value: "recovery", label: `Заявки${newCount ? ` · ${newCount}` : ""}` },
+            { value: "badges", label: "Статусы" },
+            { value: "settings", label: "Настройки" },
           ]}
         />
+          <button
+            onClick={() => (tab === "recovery" ? refetchRecovery() : refetchUsers())}
+            aria-label="Обновить"
+            title="Обновить"
+            className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-surface shadow-card transition active:scale-95"
+          >
+            <RefreshCw className="size-5" />
+          </button>
+        </div>
 
-        {tab === "users" ? (
+        {tab === "settings" ? (
+          <AdminSettings />
+        ) : tab === "badges" ? (
+          <BadgesTab />
+        ) : tab === "users" ? (
           <>
             <div className="relative mb-4">
               <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" />
@@ -265,7 +378,9 @@ export default function AdminPage() {
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-2">
                             <span className="truncate font-bold">{u.display_name}</span>
+                            <StatusBadge userId={u.id} />
                             {u.is_admin && <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">Админ</span>}
+                            {u.is_blocked && <span className="shrink-0 rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-bold text-danger">Заблокирован</span>}
                           </span>
                           <span className="block truncate text-[13px] text-muted">@{u.username} · с {new Date(u.created_at).toLocaleDateString("ru-RU")}</span>
                         </span>
@@ -291,11 +406,32 @@ export default function AdminPage() {
         ) : !recovery.data?.length ? (
           <EmptyState icon={<ShieldCheck />} title="Заявок нет" text="Здесь появятся заявки на восстановление доступа" />
         ) : (
-          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {recovery.data.map((r) => (
-              <RecoveryCard key={r.id + r.updated_at} r={r} onOpenUser={openByUsername} />
-            ))}
-          </ul>
+          <>
+            <Segmented
+              ariaLabel="Статус заявок"
+              stretch
+              className="mb-4"
+              value={reqTab}
+              onChange={setReqTab}
+              options={[
+                { value: "new", label: `Новые · ${count("new")}` },
+                { value: "in_progress", label: `В работе · ${count("in_progress")}` },
+                { value: "done", label: `Решённые · ${count("done")}` },
+              ]}
+            />
+            {requestsShown.length ? (
+              <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {requestsShown.map((r) => (
+                  <RecoveryCard key={r.id + r.updated_at} r={r} onOpenUser={openByUsername} />
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                icon={<ShieldCheck />}
+                title={reqTab === "new" ? "Новых заявок нет" : reqTab === "in_progress" ? "Нет заявок в работе" : "Решённых заявок пока нет"}
+              />
+            )}
+          </>
         )}
       </main>
 

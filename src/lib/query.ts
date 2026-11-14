@@ -76,9 +76,9 @@ export function useQuery<T>(key: string | null, fetcher: () => Promise<T>) {
     if (!e || (!e.promise && Date.now() - e.at > 30_000)) load(key).catch(() => undefined);
   }, [key, load, entry]);
 
+  // Тихое обновление: прежние данные остаются на экране, пока грузятся новые
   const refetch = useCallback(() => {
     if (!key) return Promise.resolve(undefined);
-    cache.delete(key);
     force((n) => n + 1);
     return load(key).catch(() => undefined);
   }, [key, load]);

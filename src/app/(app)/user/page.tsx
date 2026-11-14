@@ -12,6 +12,8 @@ import { MonthCalendar } from "@/components/diary/MonthCalendar";
 import { EntryCard } from "@/components/diary/EntryCard";
 import { StatsView } from "@/components/stats/StatsView";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
+import { StatusBadge } from "@/components/badges/StatusBadge";
+import { SupportWallCard } from "@/components/support/SupportWall";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
@@ -175,6 +177,7 @@ function UserProfile() {
           <Avatar src={p.avatar_url} name={p.display_name} size={88} />
           <h1 className="mt-3 text-[24px] font-extrabold tracking-tight">{p.display_name}</h1>
           <p className="text-muted">@{p.username}</p>
+          <StatusBadge userId={p.id} isAdmin={p.is_admin} className="mt-2 !text-xs" />
           <div className="mt-4">{relationAction}</div>
           {p.is_muted && isFriend && (
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted"><BellOff className="size-3.5" /> Уведомления от друга отключены</p>
@@ -229,6 +232,8 @@ function UserProfile() {
             )}
           </section>
         )}
+
+        {!p.is_admin && <SupportWallCard userId={p.id} ownerName={p.display_name} />}
 
         {!p.is_admin && p.can_see_history && latest && (
           <div className="grid grid-cols-2 gap-2">
