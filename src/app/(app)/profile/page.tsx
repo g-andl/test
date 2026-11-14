@@ -53,7 +53,7 @@ export default function ProfilePage() {
             <ListRow href="/settings/privacy/" icon={<Shield className="size-5" />} label="Приватность" />
             <ListRow href="/settings/notifications/" icon={<Bell className="size-5" />} label="Уведомления" />
             <ListRow href="/settings/account/" icon={<KeyRound className="size-5" />} label="Аккаунт" value="Пароль, удаление" />
-            <ListRow href="/legal/" icon={<FileText className="size-5" />} label="Документы" value="Политика, соглашение" />
+            <ListRow href="/legal/" icon={<FileText className="size-5" />} label="Документы" value="Правила, политика" />
           </Card>
 
           <Card>

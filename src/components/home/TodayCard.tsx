@@ -24,7 +24,7 @@ export function TodayCard({ entries, onOpen }: { entries: MoodEntry[]; onOpen: (
             key={m.value}
             onClick={() => onOpen(m.value)}
             aria-label={m.label}
-            className="group flex aspect-square min-h-14 flex-col items-center justify-center gap-1 rounded-2xl bg-surface-2 transition hover:bg-surface-3 active:scale-95 lg:aspect-auto lg:h-24"
+            className="group flex h-14 min-w-0 min-[380px]:h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-surface-2 transition hover:bg-surface-3 active:scale-95 lg:h-24"
           >
             <MoodEmoji value={m.value} size={40} decorative className="transition group-hover:scale-110 lg:!size-12" />
             <span className="hidden text-xs font-semibold text-text-2 lg:block">{m.label}</span>
