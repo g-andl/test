@@ -244,7 +244,7 @@ try {
       await p.getByRole("dialog").waitFor();
       await p.waitForTimeout(500);
       const bad = await p.evaluate(() =>
-        [...document.querySelectorAll('[role="radio"] span')]
+        [...document.querySelectorAll('[role="radio"] span')].filter((el) => el.offsetParent !== null)
           .filter((el) => {
             const r = el.getBoundingClientRect();
             const pr = el.parentElement.getBoundingClientRect();

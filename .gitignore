@@ -51,3 +51,4 @@ supabase/.temp
 
 # Секреты локальных Edge Functions
 supabase/functions/.env
+!.env.production

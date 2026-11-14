@@ -1,7 +1,6 @@
 # Сборка и публикация приложения на GitHub Pages.
-# Запускается вручную (Actions → «Публикация на GitHub Pages» → Run workflow)
-# или при пуше в main. Нужны переменные репозитория (Settings → Secrets and variables → Actions → Variables):
-#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY (необязательно)
+# Запускается вручную (Actions → «Публикация на GitHub Pages» → Run workflow) или при пуше в main.
+# Публичные настройки Supabase лежат в .env.production.
 name: Публикация на GitHub Pages
 
 on:
@@ -32,11 +31,9 @@ jobs:
         run: npm run typecheck && npm run lint
       - name: Сборка
         run: npm run build
+        # Адрес Supabase и публичный ключ берутся из .env.production
         env:
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
       - name: Отключаем обработку Jekyll (нужно для папки _next)
         run: touch out/.nojekyll
       - uses: actions/upload-pages-artifact@v3

@@ -214,13 +214,21 @@ export function MoodSheet({
               }}
             >
               <MoodEmoji value={m.value} size={40} decorative className={`transition duration-200 ${active ? "scale-110" : ""} ${mood && !active ? "opacity-45 grayscale-[50%]" : ""}`} />
-              <span className="max-w-full px-0.5 text-[10px] font-semibold leading-none tracking-[-0.01em] text-text-2 min-[410px]:text-[11px] min-[460px]:text-xs">{m.label}</span>
+              <span className="hidden max-w-full px-0.5 text-[10px] font-semibold leading-none tracking-[-0.01em] text-text-2 min-[385px]:block min-[410px]:text-[11px] min-[460px]:text-xs">{m.label}</span>
             </button>
           );
         })}
       </div>
       <p className="mt-3 min-h-5 text-center text-sm font-medium" style={{ color: selected?.color ?? "var(--muted)" }}>
-        {selected ? selected.description : "Выбери, что ближе всего"}
+        {selected ? (
+          <>
+            {/* На узких экранах подписей под эмодзи нет — называем выбранное здесь */}
+            <b className="min-[385px]:hidden">{selected.label} · </b>
+            {selected.description}
+          </>
+        ) : (
+          "Выбери, что ближе всего"
+        )}
       </p>
 
       {/* Время */}
