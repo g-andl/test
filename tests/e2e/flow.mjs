@@ -214,7 +214,8 @@ try {
   await page.screenshot({ path: `${SHOTS}/13-diary-year-390.png`, fullPage: true });
 
   // Статистика и настройки
-  await page.getByRole("link", { name: "Статистика" }).click();
+  await page.getByRole("link", { name: "Главная" }).click();
+  await page.getByRole("link", { name: "Полная статистика" }).click();
   await page.getByText("Распределение").waitFor();
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${SHOTS}/14-stats-390.png`, fullPage: true });

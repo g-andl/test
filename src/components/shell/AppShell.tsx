@@ -47,8 +47,9 @@ function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-safe backdrop-blur-md lg:hidden"
     >
       <ul className="mx-auto flex h-[var(--nav-h)] max-w-xl items-stretch justify-around px-1">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href, pathname);
+        {NAV.filter((n) => n.href !== "/stats/").map(({ href, label, icon: Icon }) => {
+          // На телефоне статистика открывается кнопкой на главной, поэтому там подсвечена «Главная»
+          const active = isActive(href, pathname) || (href === "/" && pathname.replace(/\/?$/, "/").startsWith("/stats/"));
           return (
             <li key={href} className="flex flex-1">
               <Link

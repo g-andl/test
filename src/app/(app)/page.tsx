@@ -1,5 +1,7 @@
 "use client";
 import { useEffect } from "react";
+import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useMoodSheet } from "@/components/mood/MoodSheetProvider";
@@ -63,6 +65,12 @@ export default function HomePage() {
         <FriendsMoods />
         {monthBlock}
         {weekBlock}
+        <Link
+          href="/stats/"
+          className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface text-[15px] font-semibold text-accent transition active:scale-[0.98]"
+        >
+          <BarChart3 className="size-5" /> Полная статистика
+        </Link>
       </div>
       {/* Компьютер: слева отметка, сегодня и друзья, справа месяц и лента; неделя — внизу на всю ширину */}
       <div className="hidden gap-6 lg:grid lg:grid-cols-12 lg:items-start">
