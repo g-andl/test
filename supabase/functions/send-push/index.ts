@@ -28,6 +28,8 @@ function message(type: string, name: string, mood?: number) {
       return { title: "Новая заявка в друзья", body: `${name} хочет добавить тебя в друзья` };
     case "request_accepted":
       return { title: "Заявка принята", body: `${name} теперь в твоих друзьях` };
+    case "support_reply":
+      return { title: "Окно поддержки", body: `${name} ответил(а) в окне поддержки` };
     case "support_message":
       return { title: "Окно поддержки", body: `${name} оставил(а) тебе сообщение` };
     case "request_declined":
@@ -83,9 +85,13 @@ Deno.serve(async (req) => {
     .eq("is_read", false);
 
   const actor = n.actor as unknown as { username: string; display_name: string } | null;
+  // Ответ в чужом окне ведёт на профиль владельца, в своём — на страницу сообщений
+  const { data: recipient } = await db.from("profiles").select("username").eq("id", n.user_id).maybeSingle();
+  const wall = (n.data as { wall?: string } | null)?.wall;
+  const replyPath = wall && wall !== recipient?.username ? `/user/?u=${wall}` : "/support/";
   const name = actor?.display_name ?? "Друг";
   const { title, body } = message(n.type, name, (n.data as { mood_value?: number })?.mood_value);
-  const path = n.type === "friend_request" ? "/friends/" : n.type === "support_message" ? "/support/" : actor ? `/user/?u=${actor.username}` : "/notifications/";
+  const path = n.type === "friend_request" ? "/friends/" : n.type === "support_message" ? "/support/" : n.type === "support_reply" ? replyPath : actor ? `/user/?u=${actor.username}` : "/notifications/";
   const payload = JSON.stringify({ title, body, url: `${APP_URL}${path}`, tag: `${n.type}-${actor?.username ?? ""}`, unread: unread ?? 0 });
 
   let sent = 0;

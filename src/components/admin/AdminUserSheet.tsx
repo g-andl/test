@@ -512,6 +512,7 @@ function SupportSection({ user }: { user: AdminUser }) {
             <li key={m.id} className="rounded-[18px] bg-surface-2 p-3">
               <p className="mb-1 flex flex-wrap items-center gap-x-2 text-xs text-muted">
                 <b className="text-sm text-text">{m.author_display_name}</b> @{m.author_username} · {fmtDateTime(m.created_at)}
+                {m.parent_id && <span className="rounded-full bg-surface px-2 py-0.5 font-bold text-muted">ответ</span>}
                 {m.admin_created && <span className="rounded-full bg-accent-soft px-2 py-0.5 font-bold text-accent">создано админом</span>}
                 {m.admin_edited && <span className="rounded-full bg-accent-soft px-2 py-0.5 font-bold text-accent">правлено админом</span>}
               </p>

@@ -70,7 +70,46 @@ try {
   await o.page.waitForURL(/\/support\//);
   await o.page.getByText("Ты молодец, держись!").waitFor();
   await o.page.screenshot({ path: `${SHOTS}/s2-owner.png` });
-  await o.page.getByRole("button", { name: "Удалить сообщение" }).click();
+
+  // Главная: блок «Окно поддержки» стоит сразу после «Как ты сегодня» и показывает сообщение
+  await o.page.goto(`${BASE}/`);
+  const preview = o.page.locator('section[aria-label="Окно поддержки"]:visible');
+  await preview.getByText("Ты молодец, держись!").waitFor();
+  const pos = await o.page.evaluate(() => {
+    const vis = (e) => e.getClientRects().length > 0;
+    const top = (e) => e?.getBoundingClientRect().top ?? -1;
+    return {
+      picker: top([...document.querySelectorAll("h2")].find((e) => vis(e) && /Как ты (сегодня|сейчас)/.test(e.textContent))),
+      support: top([...document.querySelectorAll('section[aria-label="Окно поддержки"]')].find(vis)),
+    };
+  });
+  assert.ok(pos.support > pos.picker, `блок поддержки ниже выбора настроения: ${JSON.stringify(pos)}`);
+  await o.page.screenshot({ path: `${SHOTS}/s2b-home-support.png` });
+  await preview.getByRole("link", { name: /Открыть|Все/ }).click();
+  await o.page.waitForURL(/\/support\//);
+  log("на главной блок «Окно поддержки» после «Как ты сегодня», ссылка открывает все сообщения");
+
+  // Ответы как комментарии: владелец отвечает, автор отвечает в ответ
+  await o.page.getByRole("button", { name: "Ответить" }).first().click();
+  await o.page.getByLabel(/Ответ для/).fill("Спасибо, мне приятно!");
+  await o.page.getByRole("button", { name: "Отправить ответ" }).click();
+  await o.page.getByText("Ответ отправлен").waitFor();
+  await o.page.getByText("Спасибо, мне приятно!").waitFor();
+  await o.page.screenshot({ path: `${SHOTS}/s2c-thread.png` });
+  await w.page.goto(`${BASE}/notifications/`);
+  await w.page.getByText(/ответил\(а\) в окне поддержки/).click();
+  await w.page.waitForURL(/\/user\/\?u=own_/);
+  await w.page.getByText("Спасибо, мне приятно!").waitFor();
+  await w.page.getByRole("button", { name: "Ответить" }).last().click();
+  assert.match(await w.page.getByLabel(/Ответ для/).inputValue(), /^Владелица, /, "ответ на ответ начинается с имени");
+  await w.page.getByLabel(/Ответ для/).fill("Владелица, обращайся!");
+  await w.page.getByRole("button", { name: "Отправить ответ" }).click();
+  await w.page.getByText("Ответ отправлен").waitFor();
+  await o.page.reload();
+  await o.page.getByText("обращайся!").waitFor();
+  log("ответы как комментарии: владелец отвечает, автор отвечает в ответ, уведомления ведут в ветку");
+
+  await o.page.getByRole("button", { name: "Удалить сообщение" }).first().click();
   await o.page.getByRole("button", { name: "Удалить?" }).click();
   await o.page.getByText("Сообщение удалено").waitFor();
   await o.page.getByText("Пока никто ничего не оставил").waitFor();
@@ -100,7 +139,7 @@ try {
   await login(a.page, `boss_${run}`);
   await a.page.waitForURL(/\/admin\//);
   await a.page.getByLabel("Поиск пользователей").fill(`own_${run}`);
-  await a.page.getByText("Владелица").click();
+  await a.page.getByRole("button", { name: new RegExp(`@own_${run}`) }).click();
   const sheet = a.page.getByRole("dialog");
   await sheet.getByRole("heading", { name: /Окно поддержки/ }).waitFor();
   await sheet.getByText("сообщение для правки").waitFor();
