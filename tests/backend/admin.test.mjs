@@ -120,6 +120,26 @@ test('заявка на восстановление → админ задаёт
   assert.equal(l2.find((r) => r.id === req.id).status, 'done');
 });
 
+test('админ ставит отметку за пользователя, друг получает уведомление', async () => {
+  const friend = await signUp(`frd_${run}`, 'Друг');
+  await friend.c.rpc('send_friend_request', { p_addressee: user.id });
+  const { data: fr } = await user.c.from('friendships').select('id').eq('requester_id', friend.id).single();
+  await user.c.from('friendships').update({ status: 'accepted' }).eq('id', fr.id);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'UTC' });
+  const { error } = await boss.c.rpc('admin_create_entry', {
+    p_user: user.id, p_date: today, p_time: new Date().toISOString(), p_part: 'day', p_mood: 5, p_note: 'от админа',
+  });
+  assert.ifError(error);
+  const { data } = await admin.from('mood_entries').select('note').eq('user_id', user.id).eq('note', 'от админа');
+  assert.equal(data.length, 1);
+  const { data: n } = await friend.c.from('notifications').select('type').eq('type', 'friend_mood');
+  assert.equal(n.length, 1, 'друг получил уведомление');
+  const deny = await user.c.rpc('admin_create_entry', {
+    p_user: other.id, p_date: today, p_time: new Date().toISOString(), p_part: 'day', p_mood: 1, p_note: '',
+  });
+  assert.ok(deny.error, 'обычный пользователь не может ставить отметки за других');
+});
+
 test('админ удаляет аккаунт, но не себя', async () => {
   const self = await boss.c.rpc('admin_delete_user', { p_user: boss.id });
   assert.ok(self.error);

@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { KeyRound, Trash2, Save, Wand2 } from "lucide-react";
+import { KeyRound, Trash2, Save, Wand2, Plus } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -11,10 +11,10 @@ import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  adminUserEntries, adminUpdateEntry, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, LOGIN_DOMAIN,
+  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, LOGIN_DOMAIN,
 } from "@/lib/api";
-import { MOODS, dayPartOf } from "@/lib/mood";
-import { formatRelativeDay, formatTime } from "@/lib/dates";
+import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
+import { formatRelativeDay, formatTime, todayKey, combineDateTime } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import { usePhoto } from "@/hooks/data";
 import type { AdminUser, MoodEntry } from "@/lib/types";
@@ -102,6 +102,85 @@ function EntryEditor({ entry, onChanged }: { entry: MoodEntry; onChanged: () => 
   );
 }
 
+/** Новая отметка за пользователя */
+function NewEntryForm({ userId, onCreated }: { userId: string; onCreated: () => void }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(todayKey());
+  const [time, setTime] = useState(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  });
+  const [mood, setMood] = useState<number | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (!open) {
+    return (
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+        <Plus className="size-4" /> Добавить отметку
+      </Button>
+    );
+  }
+
+  async function save() {
+    if (!mood) return;
+    const [h, m] = time.split(":").map(Number);
+    setBusy(true);
+    try {
+      await adminCreateEntry(userId, date, combineDateTime(date, h, m), dayPartByHour(h), mood, note);
+      toast("Отметка добавлена");
+      setMood(null);
+      setNote("");
+      setOpen(false);
+      onCreated();
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-[20px] border-2 border-dashed border-line p-3">
+      <p className="mb-2 text-sm font-bold">Новая отметка за пользователя</p>
+      <div className="mb-2 flex gap-2">
+        <input type="date" value={date} max={todayKey()} onChange={(e) => setDate(e.target.value)} aria-label="Дата" className="h-11 flex-1 rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent" />
+        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Время" className="h-11 w-28 rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <div role="radiogroup" aria-label="Настроение новой отметки" className="mb-2 flex gap-1.5">
+        {MOODS.map((m) => (
+          <button
+            key={m.value}
+            role="radio"
+            aria-checked={mood === m.value}
+            aria-label={m.label}
+            onClick={() => setMood(m.value)}
+            className="flex size-11 items-center justify-center rounded-xl border-2 transition"
+            style={{ background: mood === m.value ? m.soft : "var(--surface-2)", borderColor: mood === m.value ? m.color : "transparent" }}
+          >
+            <MoodEmoji value={m.value} size={26} decorative />
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value.slice(0, 2000))}
+        rows={2}
+        placeholder="Заметка (необязательно)"
+        aria-label="Заметка новой отметки"
+        className="w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+      />
+      <div className="mt-2 flex gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>Отмена</Button>
+        <Button size="sm" disabled={!mood || !date || !time} loading={busy} onClick={save}>
+          <Save className="size-4" /> Добавить
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Всё о пользователе: данные, смена пароля, редактирование, отметки, удаление */
 export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
   const toast = useToast();
@@ -109,7 +188,7 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [delText, setDelText] = useState("");
+  const [confirmDel, setConfirmDel] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -117,7 +196,7 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
     setName(user?.display_name ?? "");
     setUsername(user?.username ?? "");
     setPassword("");
-    setDelText("");
+    setConfirmDel(false);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [user]);
 
@@ -213,6 +292,11 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
 
       <section className="mt-5">
         <h3 className="mb-2 font-bold">Отметки {entries.data ? `(${entries.data.length})` : ""}</h3>
+        {!user.is_admin && (
+          <div className="mb-3">
+            <NewEntryForm userId={user.id} onCreated={() => { entries.refetch(); invalidate("admin-users"); }} />
+          </div>
+        )}
         {entries.loading ? (
           <div className="flex justify-center py-6"><Spinner /></div>
         ) : !entries.data?.length ? (
@@ -230,25 +314,27 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
       {!user.is_admin && (
         <section className="mt-6 rounded-2xl border border-danger/30 p-4">
           <h3 className="font-bold text-danger">Удалить аккаунт</h3>
-          <p className="mt-1 text-[13px] text-muted">Удалятся профиль, отметки, фото, друзья и уведомления. Действие необратимо. Введи имя пользователя для подтверждения.</p>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={delText}
-              onChange={(e) => setDelText(e.target.value.trim().toLowerCase())}
-              placeholder={user.username ?? ""}
-              aria-label="Имя пользователя для подтверждения"
-              autoCapitalize="none"
-              className="h-11 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-danger"
-            />
-            <Button
-              size="sm"
-              variant="danger"
-              disabled={delText !== user.username}
-              loading={busy === "delete"}
-              onClick={() => run("delete", () => adminDeleteUser(user.id), "Аккаунт удалён", onClose)}
-            >
-              <Trash2 className="size-4" /> Удалить
-            </Button>
+          <p className="mt-1 text-[13px] text-muted">Удалятся профиль, отметки, фото, друзья и уведомления. Действие необратимо.</p>
+          <div className="mt-3 flex gap-2">
+            {confirmDel ? (
+              <>
+                <Button size="sm" variant="secondary" onClick={() => setConfirmDel(false)} disabled={busy === "delete"}>
+                  Отмена
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  loading={busy === "delete"}
+                  onClick={() => run("delete", () => adminDeleteUser(user.id), "Аккаунт удалён", onClose)}
+                >
+                  <Trash2 className="size-4" /> Точно удалить?
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" variant="danger" onClick={() => setConfirmDel(true)}>
+                <Trash2 className="size-4" /> Удалить аккаунт
+              </Button>
+            )}
           </div>
         </section>
       )}

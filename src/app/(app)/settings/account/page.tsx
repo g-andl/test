@@ -21,7 +21,6 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [delOpen, setDelOpen] = useState(false);
-  const [confirm, setConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   async function changePassword(e: React.FormEvent) {
@@ -44,7 +43,7 @@ export default function AccountPage() {
   }
 
   async function onDelete() {
-    if (!session || confirm !== profile?.username) return;
+    if (!session) return;
     setDeleting(true);
     try {
       await deleteAccount(session.user.id);
@@ -93,15 +92,19 @@ export default function AccountPage() {
         onClose={() => setDelOpen(false)}
         title="Удалить аккаунт?"
         footer={
-          <Button variant="danger" block size="lg" loading={deleting} disabled={confirm !== profile?.username} onClick={onDelete}>
-            Удалить навсегда
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" size="lg" onClick={() => setDelOpen(false)} disabled={deleting}>
+              Отмена
+            </Button>
+            <Button variant="danger" className="flex-1" size="lg" loading={deleting} onClick={onDelete}>
+              Точно удалить?
+            </Button>
+          </div>
         }
       >
-        <p className="mb-4 text-text-2">
-          Это действие необратимо. Чтобы подтвердить, введи своё имя пользователя: <b className="text-text">{profile?.username}</b>
+        <p className="text-text-2">
+          Удалятся все отметки, фото, друзья и уведомления аккаунта <b className="text-text">@{profile?.username}</b>. Восстановить их будет нельзя.
         </p>
-        <Field label="Имя пользователя" value={confirm} autoCapitalize="none" onChange={(e) => setConfirm(e.target.value.trim().toLowerCase())} />
       </Sheet>
     </>
   );

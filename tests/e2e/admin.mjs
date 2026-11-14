@@ -75,6 +75,17 @@ try {
   await page.screenshot({ path: `${SHOTS}/a3-admin-user.png` });
   log("карточка пользователя: дата создания и отметки видны");
 
+  // 3б. Отметка за пользователя
+  await sheet.getByRole("button", { name: "Добавить отметку" }).click();
+  await sheet.getByRole("radiogroup", { name: "Настроение новой отметки" }).getByRole("radio", { name: "Отлично" }).click();
+  await sheet.getByLabel("Заметка новой отметки").fill("добавлено админом");
+  await sheet.getByRole("button", { name: "Добавить", exact: true }).click();
+  await page.getByText("Отметка добавлена").waitFor();
+  const { data: added } = await admin.from("mood_entries").select("mood_value").eq("user_id", userId).eq("note", "добавлено админом");
+  assert.equal(added.length, 1);
+  assert.equal(added[0].mood_value, 5);
+  log("отметка за пользователя добавлена");
+
   // 4. Новый пароль
   await sheet.getByLabel("Новый пароль").fill("Temp2026pass");
   await sheet.getByRole("button", { name: "Задать" }).click();
@@ -84,6 +95,28 @@ try {
   await card.getByRole("button", { name: "Решено" }).click();
   await page.getByText("Заявка закрыта").waitFor();
   log("пароль задан, заявка закрыта");
+
+  // 4б. Удаление аккаунта в два касания
+  const victimId = await mk(`victim_${run}`, "Удаляемый");
+  await page.getByRole("tab", { name: /Пользователи/ }).click();
+  await page.getByLabel("Поиск пользователей").fill(`victim_${run}`);
+  await page.getByText("Удаляемый").click();
+  await sheet.getByRole("button", { name: "Удалить аккаунт" }).click();
+  await sheet.getByRole("button", { name: "Точно удалить?" }).click();
+  await page.getByText("Аккаунт удалён").waitFor();
+  const { data: gone } = await admin.from("profiles").select("id").eq("id", victimId);
+  assert.equal(gone.length, 0);
+  log("удаление аккаунта в два касания");
+
+  // 4в. Смена своего пароля во вкладке «Настройки»
+  await page.getByLabel("Поиск пользователей").fill("");
+  await page.getByRole("tab", { name: "Настройки" }).click();
+  await page.getByLabel("Новый пароль").fill("BossNew2026");
+  await page.getByLabel("Повтори пароль").fill("BossNew2026");
+  await page.getByRole("button", { name: "Сохранить пароль" }).click();
+  await page.getByText("Пароль изменён").waitFor();
+  await page.screenshot({ path: `${SHOTS}/a5-admin-settings.png` });
+  log("смена своего пароля в «Настройках»");
 
   // 5. Пользователь входит с новым паролем и видит админа с пометкой
   await page.getByRole("button", { name: "Выйти" }).click();

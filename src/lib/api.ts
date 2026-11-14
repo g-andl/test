@@ -260,6 +260,14 @@ export async function adminUserEntries(userId: string): Promise<MoodEntry[]> {
 export async function adminUpdateEntry(entryId: string, mood: number, note: string) {
   check(await supabase.rpc("admin_update_entry", { p_entry: entryId, p_mood: mood, p_note: note }));
 }
+/** Отметка за пользователя (дата и время — по часовому поясу администратора) */
+export async function adminCreateEntry(userId: string, date: string, time: Date, part: DayPart, mood: number, note: string) {
+  check(
+    await supabase.rpc("admin_create_entry", {
+      p_user: userId, p_date: date, p_time: time.toISOString(), p_part: part, p_mood: mood, p_note: note,
+    }),
+  );
+}
 export async function adminDeleteEntry(entry: MoodEntry) {
   if (entry.photo_path) await supabase.storage.from("mood-photos").remove([entry.photo_path]);
   check(await supabase.rpc("admin_delete_entry", { p_entry: entry.id }));

@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound } from "lucide-react";
+import { Search, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
+import { Field } from "@/components/ui/Field";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
@@ -103,52 +104,44 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
   );
 }
 
-/** Смена пароля самого администратора */
-function OwnPassword() {
+/** Настройки администратора: смена своего пароля */
+function AdminSettings() {
   const toast = useToast();
-  const [open, setOpen] = useState(false);
   const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
-  if (!open) {
-    return (
-      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
-        <KeyRound className="size-4" /> Мой пароль
-      </Button>
-    );
-  }
+  const mismatch = pw2.length > 0 && pw !== pw2;
   return (
-    <form
-      className="flex w-full gap-2 sm:w-auto"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (pw.length < 8) return;
-        setBusy(true);
-        const { error } = await supabase.auth.updateUser({ password: pw });
-        setBusy(false);
-        if (error) return toast(humanError(error), "error");
-        toast("Твой пароль изменён");
-        setPw("");
-        setOpen(false);
-      }}
-    >
-      <input
-        type="password"
-        value={pw}
-        onChange={(e) => setPw(e.target.value)}
-        placeholder="Новый пароль, от 8 символов"
-        aria-label="Мой новый пароль"
-        autoComplete="new-password"
-        className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-sm outline-none focus:ring-2 focus:ring-accent sm:w-56"
-      />
-      <Button size="sm" type="submit" disabled={pw.length < 8} loading={busy}>Сменить</Button>
-    </form>
+    <section className="max-w-md rounded-[22px] bg-surface p-5 shadow-card">
+      <h2 className="mb-1 flex items-center gap-2 text-[17px] font-bold"><KeyRound className="size-5 text-accent" /> Сменить мой пароль</h2>
+      <p className="mb-4 text-[13px] text-muted">Пароль администратора. Не короче 8 символов.</p>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (pw.length < 8 || pw !== pw2) return;
+          setBusy(true);
+          const { error } = await supabase.auth.updateUser({ password: pw });
+          setBusy(false);
+          if (error) return toast(humanError(error), "error");
+          toast("Пароль изменён");
+          setPw("");
+          setPw2("");
+        }}
+      >
+        <input type="text" autoComplete="username" value="admin" readOnly hidden />
+        <Field label="Новый пароль" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <Field label="Повтори пароль" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} error={mismatch ? "Пароли не совпадают" : null} />
+        <Button type="submit" disabled={pw.length < 8 || pw !== pw2} loading={busy}>Сохранить пароль</Button>
+      </form>
+    </section>
   );
 }
 
 export default function AdminPage() {
   const { ready, session, profile, signOut } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<"users" | "recovery">("users");
+  const [tab, setTab] = useState<"users" | "recovery" | "settings">("users");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(50);
@@ -166,6 +159,23 @@ export default function AdminPage() {
   const users = useQuery(isAdmin ? `admin-users:${search}:${limit}` : null, () => adminListUsers(search, limit));
   const recovery = useQuery(isAdmin ? "admin-recovery" : null, adminListRecovery);
   const newCount = recovery.data?.filter((r) => r.status === "new").length ?? 0;
+
+  // Заявки и аккаунты обновляются сами: при переходе на вкладку и каждые 20 секунд
+  const refetchRecovery = recovery.refetch;
+  const refetchUsers = users.refetch;
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (tab === "recovery") refetchRecovery();
+    else refetchUsers();
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refetchRecovery();
+        if (tab === "users") refetchUsers();
+      }
+    }, 20000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- перезапускаем только при смене вкладки
+  }, [tab, isAdmin]);
 
   // Обновляем карточку открытого пользователя после правок
   useEffect(() => {
@@ -218,24 +228,34 @@ export default function AdminPage() {
 
       <main className="mx-auto max-w-5xl px-4 pb-16 pt-6 sm:px-6">
         <h1 className="text-[28px] font-extrabold tracking-tight">Админ-панель</h1>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-muted">Вошёл как {profile.display_name} (@{profile.username})</p>
-          <OwnPassword />
-        </div>
+        <p className="mb-4 text-sm text-muted">Вошёл как {profile.display_name} (@{profile.username})</p>
 
+        <div className="mb-4 flex items-center gap-2">
         <Segmented
           ariaLabel="Раздел"
           stretch
-          className="mb-4 sm:max-w-md"
+          className="flex-1 sm:max-w-md"
           value={tab}
           onChange={setTab}
           options={[
             { value: "users", label: `Пользователи${total ? ` · ${total}` : ""}` },
             { value: "recovery", label: `Заявки${newCount ? ` · ${newCount}` : ""}` },
+            { value: "settings", label: "Настройки" },
           ]}
         />
+          <button
+            onClick={() => (tab === "recovery" ? refetchRecovery() : refetchUsers())}
+            aria-label="Обновить"
+            title="Обновить"
+            className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-surface shadow-card transition active:scale-95"
+          >
+            <RefreshCw className="size-5" />
+          </button>
+        </div>
 
-        {tab === "users" ? (
+        {tab === "settings" ? (
+          <AdminSettings />
+        ) : tab === "users" ? (
           <>
             <div className="relative mb-4">
               <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" />
