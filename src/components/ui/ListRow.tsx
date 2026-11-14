@@ -22,8 +22,9 @@ export function ListRow({
       <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${danger ? "bg-danger-soft text-danger" : "bg-surface-2 text-text-2"}`}>
         {icon}
       </span>
-      <span className={`min-w-0 flex-1 truncate text-[15px] font-semibold ${danger ? "text-danger" : ""}`}>{label}</span>
-      {value && <span className="truncate text-sm text-muted">{value}</span>}
+      <span className={`shrink-0 whitespace-nowrap text-[15px] font-semibold ${danger ? "text-danger" : ""}`}>{label}</span>
+      {/* Название не сокращается: при нехватке места сокращается пояснение справа */}
+      <span className="ml-auto min-w-0 truncate text-sm text-muted">{value}</span>
       {href && <ChevronRight className="size-5 shrink-0 text-muted" />}
     </>
   );
