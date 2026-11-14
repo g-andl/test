@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, ShieldCheck, UserPlus, Check, Clock3, BellOff, Bell, UserMinus, CalendarDays, BarChart3, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Lock, ShieldCheck, UserPlus, Check, Clock3, BellOff, Bell, UserMinus, CalendarDays, BarChart3, Eye, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +10,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/States";
 import { MonthCalendar } from "@/components/diary/MonthCalendar";
 import { EntryCard } from "@/components/diary/EntryCard";
+import { MoodCard } from "@/components/mood/MoodCard";
 import { StatsView } from "@/components/stats/StatsView";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { StatusBadge } from "@/components/badges/StatusBadge";
@@ -35,21 +36,13 @@ function EntryCarousel({ entries }: { entries: EntryLite[] }) {
     <div className="relative">
       <ul
         ref={setEl}
-        className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 min-[380px]:-mx-5 min-[380px]:px-5 lg:mx-0 lg:px-0"
+        className="no-scrollbar -mx-4 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto px-4 pb-1 min-[380px]:-mx-5 min-[380px]:px-5 lg:mx-0 lg:px-0"
       >
-        {entries.map((e) => {
-          const m = moodOf(e.mood_value);
-          return (
-            <li key={e.id} className="w-[85%] shrink-0 snap-center sm:w-[60%] lg:w-[calc(50%-6px)]">
-              <div className="flex h-full flex-col rounded-[24px] p-1" style={{ background: m.soft }}>
-                <p className="px-4 pb-1 pt-3 text-[13px] font-semibold text-text-2">
-                  {formatRelativeDay(e.entry_date)} · {formatTime(e.mood_time)}
-                </p>
-                <EntryCard entry={e} className="flex-1" />
-              </div>
-            </li>
-          );
-        })}
+        {entries.map((e) => (
+          <li key={e.id} className={entries.length === 1 ? "w-full shrink-0" : "w-[82%] shrink-0 snap-center sm:w-[56%] lg:w-[calc(50%-6px)]"}>
+            <MoodCard entry={e} />
+          </li>
+        ))}
       </ul>
       {entries.length > 2 && (
         <div className="mt-2 hidden justify-end gap-2 lg:flex">
@@ -73,6 +66,7 @@ function UserProfile() {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [friendMenu, setFriendMenu] = useState(false);
   const [showMood, setShowMood] = useState(false);
   const [panel, setPanel] = useState<"calendar" | "stats" | null>(null);
   const [day, setDay] = useState<string | null>(null);
@@ -129,9 +123,13 @@ function UserProfile() {
     </span>
   ) : isFriend ? (
       <div className="flex items-center gap-2">
-        <span className="flex h-11 items-center gap-1.5 rounded-2xl bg-accent-soft px-4 text-sm font-semibold text-accent">
-          <Check className="size-4" /> В друзьях
-        </span>
+        <button
+          onClick={() => setFriendMenu(true)}
+          aria-haspopup="dialog"
+          className="flex h-11 items-center gap-1.5 rounded-2xl bg-accent-soft pl-4 pr-3 text-sm font-semibold text-accent transition active:scale-95"
+        >
+          <Check className="size-4" /> В друзьях <ChevronDown className="size-4 opacity-70" />
+        </button>
         <button
           onClick={() => act(() => setMuted(session!.user.id, p.id, !p.is_muted), p.is_muted ? "Уведомления включены" : "Уведомления отключены")}
           disabled={busy}
@@ -140,14 +138,6 @@ function UserProfile() {
           className={`flex size-11 items-center justify-center rounded-2xl transition active:scale-95 ${p.is_muted ? "bg-surface-2 text-muted" : "bg-surface-2 text-text"}`}
         >
           {p.is_muted ? <BellOff className="size-5" /> : <Bell className="size-5" />}
-        </button>
-        <button
-          onClick={() => setConfirmRemove(true)}
-          aria-label="Удалить из друзей"
-          title="Удалить из друзей"
-          className="flex size-11 items-center justify-center rounded-2xl bg-danger-soft text-danger transition active:scale-95"
-        >
-          <UserMinus className="size-5" />
         </button>
       </div>
     ) : p.relation === "outgoing" ? (
@@ -282,19 +272,41 @@ function UserProfile() {
       </Sheet>
 
       <Sheet
-        open={confirmRemove}
-        onClose={() => setConfirmRemove(false)}
-        title="Удалить из друзей?"
-        footer={
-          <div className="flex gap-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setConfirmRemove(false)}>Отмена</Button>
-            <Button variant="danger" className="flex-1" loading={busy} onClick={() => act(() => removeFriendship(p.friendship_id!), "Удалён из друзей")}>
-              Удалить
-            </Button>
-          </div>
-        }
+        open={friendMenu}
+        onClose={() => { setFriendMenu(false); setConfirmRemove(false); }}
+        title={`${p.display_name} в друзьях`}
       >
-        <p className="text-text-2">{p.display_name} больше не будет видеть твоё настроение как друг. Добавить снова можно через поиск.</p>
+        <p className="mb-4 text-text-2">
+          {p.display_name} видит всё твоё настроение, заметки и фото, а ты — его.
+        </p>
+        <div className="flex flex-col gap-2 pb-2">
+          {confirmRemove ? (
+            <div className="flex gap-2">
+              <Button variant="secondary" className="flex-1" size="lg" onClick={() => setConfirmRemove(false)} disabled={busy}>
+                Отмена
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                size="lg"
+                loading={busy}
+                onClick={async () => {
+                  await act(() => removeFriendship(p.friendship_id!), "Удалён из друзей");
+                  setFriendMenu(false);
+                }}
+              >
+                Точно удалить?
+              </Button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmRemove(true)}
+              className="flex h-14 items-center gap-3 rounded-2xl bg-danger-soft px-4 text-left font-semibold text-danger"
+            >
+              <UserMinus className="size-5" /> Удалить из друзей
+            </button>
+          )}
+        </div>
       </Sheet>
     </>
   );

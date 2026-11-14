@@ -52,7 +52,8 @@ test('профиль и настройки создаются при регис�
   assert.equal(p.timezone, 'Asia/Novosibirsk');
   const { data: s } = await masha.c.from('privacy_settings').select('*').single();
   assert.equal(s.public_visibility, 'all', 'для остальных по умолчанию открыто');
-  assert.equal(s.photos_public, false, 'фото для остальных скрыто по умолчанию');
+  assert.equal(s.photos_public, true, 'фото для остальных видно по умолчанию');
+  assert.equal(s.notes_public, true, 'заметки для остальных видны по умолчанию');
 });
 
 test('anon не видит данные, но может проверить username', async () => {
@@ -82,13 +83,13 @@ test('несколько отметок в день, чужие записи н�
   assert.ok(fake.error, 'нельзя создать запись за другого');
 });
 
-test('посторонний при «всё открыто» видит записи и заметки, но не фото', async () => {
+test('посторонний при «всё открыто» видит записи, заметки и пометку о фото', async () => {
   const { data } = await stranger.c.rpc('get_user_entries', { p_user: masha.id, p_from: '2000-01-01', p_to: '2100-01-01' });
   assert.equal(data.length, 2);
   assert.ok(data.some((e) => e.note === 'секретная заметка'));
   const { data: prof } = await stranger.c.rpc('get_user_profile', { p_username: masha.username });
   assert.equal(prof.access, 'all');
-  assert.equal(prof.can_see_photos, false);
+  assert.equal(prof.can_see_photos, true, 'фото видно по умолчанию');
   assert.equal(prof.latest.mood_value, 2, 'последняя — вечерняя');
 });
 
@@ -173,8 +174,7 @@ test('отключение уведомлений от друга', async () => 
   await dima.c.from('muted_friends').delete().eq('muted_id', masha.id);
 });
 
-test('фото: друг видит всегда, посторонний — только если разрешено', async () => {
-  await masha.c.from('privacy_settings').update({ public_visibility: 'all' }).eq('user_id', masha.id);
+test('фото и заметки: друг видит всегда, посторонний — пока не скрыто, о скрытом он знает', async () => {
   const path = `${masha.id}/${run}.png`;
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
@@ -183,15 +183,39 @@ test('фото: друг видит всегда, посторонний — т�
   const up = await masha.c.storage.from('mood-photos').upload(path, png, { contentType: 'image/png' });
   assert.ifError(up.error);
   const { data: last } = await masha.c.from('mood_entries').select('id').order('mood_time', { ascending: false }).limit(1).single();
-  await masha.c.from('mood_entries').update({ photo_path: path }).eq('id', last.id);
+  await masha.c.from('mood_entries').update({ photo_path: path, note: 'видимая заметка' }).eq('id', last.id);
+  await masha.c.from('privacy_settings').update({ public_visibility: 'all', photos_public: true, notes_public: true }).eq('user_id', masha.id);
+  const range = { p_user: masha.id, p_from: '2000-01-01', p_to: '2100-01-01' };
 
-  const friendOk = await dima.c.storage.from('mood-photos').createSignedUrl(path, 60);
-  assert.ifError(friendOk.error);
-  const denied = await stranger.c.storage.from('mood-photos').createSignedUrl(path, 60);
-  assert.ok(denied.error, 'посторонний не видит фото по умолчанию');
-  await masha.c.from('privacy_settings').update({ photos_public: true }).eq('user_id', masha.id);
-  const ok = await stranger.c.storage.from('mood-photos').createSignedUrl(path, 60);
-  assert.ifError(ok.error, 'после разрешения — видит');
+  // По умолчанию видно всем
+  const open = await stranger.c.storage.from('mood-photos').createSignedUrl(path, 60);
+  assert.ifError(open.error, 'фото видно по умолчанию');
+  let e = (await stranger.c.rpc('get_user_entries', range)).data.find((x) => x.id === last.id);
+  assert.equal(e.note, 'видимая заметка');
+  assert.equal(e.photo_path, path);
+
+  // Скрыли от посторонних: содержимого нет, но известно, что оно есть
+  await masha.c.from('privacy_settings').update({ photos_public: false, notes_public: false }).eq('user_id', masha.id);
+  assert.ok((await stranger.c.storage.from('mood-photos').createSignedUrl(path, 60)).error, 'фото скрыто');
+  e = (await stranger.c.rpc('get_user_entries', range)).data.find((x) => x.id === last.id);
+  assert.equal(e.note, null, 'заметка скрыта');
+  assert.equal(e.photo_path, null, 'фото скрыто');
+  assert.equal(e.has_note, true, 'зритель знает, что заметка есть');
+  assert.equal(e.has_photo, true, 'зритель знает, что фото есть');
+  const prof = (await stranger.c.rpc('get_user_profile', { p_username: masha.username })).data;
+  assert.equal(prof.latest.note, null);
+  assert.equal(prof.latest.has_photo, true);
+  assert.equal(prof.can_see_notes, false);
+
+  // Друг видит всё, даже когда скрыто от остальных
+  assert.ifError((await dima.c.storage.from('mood-photos').createSignedUrl(path, 60)).error);
+  e = (await dima.c.rpc('get_user_entries', range)).data.find((x) => x.id === last.id);
+  assert.equal(e.note, 'видимая заметка');
+  assert.equal(e.photo_path, path);
+
+  // Владелец видит своё
+  e = (await masha.c.rpc('get_user_entries', { ...range, p_user: masha.id })).data.find((x) => x.id === last.id);
+  assert.equal(e.note, 'видимая заметка');
 
   const foreignUpload = await dima.c.storage.from('mood-photos').upload(`${masha.id}/x.png`, png, { contentType: 'image/png' });
   assert.ok(foreignUpload.error, 'нельзя загрузить в чужую папку');

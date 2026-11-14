@@ -145,7 +145,7 @@ try {
   await dialog.waitFor({ state: "detached" });
   const { data: two } = await admin.from("mood_entries").select("mood_value, day_part").eq("user_id", me.id).order("mood_time");
   assert.deepEqual(two.map((e) => [e.mood_value, e.day_part]), [[1, "morning"], [5, "evening"]]);
-  await page.getByRole("link", { name: /Все отметки за сегодня/ }).first().waitFor();
+  await page.locator('[aria-label="Отметки за сегодня"]:visible').waitFor();
   log("две отметки в один день (утро и вечер)");
   await page.screenshot({ path: `${SHOTS}/06b-home-two-390.png`, fullPage: true });
 

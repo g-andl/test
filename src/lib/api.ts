@@ -284,11 +284,11 @@ export async function adminCreateEntry(userId: string, date: string, time: Date,
 export async function adminSetContactEmail(userId: string, email: string) {
   check(await supabase.rpc("admin_set_contact_email", { p_user: userId, p_email: email }));
 }
-export async function adminUpdatePrivacy(userId: string, visibility: string, photos: boolean) {
-  check(await supabase.rpc("admin_update_privacy", { p_user: userId, p_visibility: visibility, p_photos: photos }));
+export async function adminUpdatePrivacy(userId: string, visibility: string, photos: boolean, notes?: boolean) {
+  check(await supabase.rpc("admin_update_privacy", { p_user: userId, p_visibility: visibility, p_photos: photos, p_notes: notes ?? null }));
 }
-export async function adminUserPrivacy(userId: string): Promise<{ public_visibility: string; photos_public: boolean } | null> {
-  const rows = (check(await supabase.rpc("admin_user_privacy", { p_user: userId })) ?? []) as { public_visibility: string; photos_public: boolean }[];
+export async function adminUserPrivacy(userId: string): Promise<{ public_visibility: string; photos_public: boolean; notes_public: boolean } | null> {
+  const rows = (check(await supabase.rpc("admin_user_privacy", { p_user: userId })) ?? []) as { public_visibility: string; photos_public: boolean; notes_public: boolean }[];
   return rows[0] ?? null;
 }
 export interface ActivitySession { id: string; started_at: string; last_seen_at: string; user_agent: string | null }
@@ -369,30 +369,37 @@ export interface BadgeData {
   list: Badge[];
   /** пользователь → его статус */
   byUser: Record<string, Badge>;
+  /** кому статус выдан вручную (автоматические система пересчитывает сама) */
+  manual: Record<string, boolean>;
   /** сколько у каждого статуса владельцев */
   counts: Record<string, number>;
 }
 export async function fetchBadgeData(): Promise<BadgeData> {
   const [b, ub] = await Promise.all([
-    supabase.from("badges").select("id, name, color").order("created_at"),
-    supabase.from("user_badges").select("user_id, badge_id"),
+    supabase.from("badges").select("id, name, color, hint, auto_key").order("created_at"),
+    supabase.from("user_badges").select("user_id, badge_id, source"),
   ]);
   if (b.error) throw b.error;
   if (ub.error) throw ub.error;
   const list = (b.data ?? []) as Badge[];
   const byId = new Map(list.map((x) => [x.id, x]));
   const byUser: Record<string, Badge> = {};
+  const manual: Record<string, boolean> = {};
   const counts: Record<string, number> = {};
   for (const r of ub.data ?? []) {
     const badge = byId.get(r.badge_id as string);
     if (!badge) continue;
     byUser[r.user_id as string] = badge;
+    if (r.source === "manual") manual[r.user_id as string] = true;
     counts[badge.id] = (counts[badge.id] ?? 0) + 1;
   }
-  return { list, byUser, counts };
+  return { list, byUser, manual, counts };
 }
 export async function adminSaveBadge(id: string | null, name: string, color: string): Promise<string> {
   return check(await supabase.rpc("admin_save_badge", { p_id: id, p_name: name, p_color: color })) as string;
+}
+export async function adminRefreshBadges(): Promise<number> {
+  return Number(check(await supabase.rpc("admin_refresh_badges")));
 }
 export async function adminDeleteBadge(id: string) {
   check(await supabase.rpc("admin_delete_badge", { p_id: id }));

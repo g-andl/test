@@ -84,20 +84,28 @@ export default function PrivacyPage() {
                   </label>
                 ))}
               </div>
-              {s.public_visibility === "all" && (
-                <p className="mt-3 flex gap-2 rounded-2xl bg-surface-2 px-3 py-2.5 text-[13px] text-text-2">
-                  <Lock className="mt-0.5 size-4 shrink-0" /> Заметки будут видны всем, кто найдёт тебя по имени пользователя.
-                </p>
-              )}
-              <div className={`mt-2 ${s.public_visibility === "none" ? "pointer-events-none opacity-50" : ""}`}>
+              <div className={`mt-2 divide-y divide-line ${s.public_visibility === "none" ? "pointer-events-none opacity-50" : ""}`}>
+                <Toggle
+                  label="Показывать заметки"
+                  description="Текст заметок в твоих отметках. Друзья видят заметки всегда"
+                  checked={s.notes_public}
+                  disabled={s.public_visibility === "none"}
+                  onChange={(v) => set({ notes_public: v })}
+                />
                 <Toggle
                   label="Показывать фото"
-                  description="По умолчанию фото видят только друзья"
+                  description="Фото в твоих отметках. Друзья видят фото всегда"
                   checked={s.photos_public}
                   disabled={s.public_visibility === "none"}
                   onChange={(v) => set({ photos_public: v })}
                 />
               </div>
+              {(!s.notes_public || !s.photos_public) && s.public_visibility !== "none" && (
+                <p className="mt-3 flex gap-2 rounded-2xl bg-surface-2 px-3 py-2.5 text-[13px] text-text-2">
+                  <Lock className="mt-0.5 size-4 shrink-0" />
+                  Скрытые заметки и фото другие увидят как «скрыто»: будет понятно, что они есть, но прочитать или посмотреть их нельзя.
+                </p>
+              )}
             </Card>
             <Card>
               <p className="mb-1 flex items-center gap-2 text-[15px] font-bold">
