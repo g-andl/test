@@ -438,3 +438,79 @@ drop policy "mood: создавать свои" on public.mood_entries;
 create policy "mood: создавать свои"
   on public.mood_entries for insert to authenticated
   with check (user_id = (select auth.uid()) and not private.is_current_admin());
+
+-- Профиль пользователя: добавлен признак администратора
+create or replace function public.get_user_profile(p_username text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me     uuid := auth.uid();
+  p        public.profiles;
+  f        public.friendships;
+  v_rel    text := 'none';
+  v_access text;
+  v_photos boolean;
+  v_latest jsonb;
+  v_count  int;
+begin
+  if v_me is null then
+    raise exception 'Нужно войти' using errcode = '42501';
+  end if;
+
+  select * into p from public.profiles where username = lower(p_username);
+  if not found then
+    return null;
+  end if;
+
+  if p.id = v_me then
+    v_rel := 'self';
+  else
+    select * into f from public.friendships
+    where least(requester_id, addressee_id) = least(v_me, p.id)
+      and greatest(requester_id, addressee_id) = greatest(v_me, p.id);
+    if found then
+      if f.status = 'accepted' then v_rel := 'friends';
+      elsif f.requester_id = v_me then v_rel := 'outgoing';
+      else v_rel := 'incoming';
+      end if;
+    end if;
+  end if;
+
+  v_access := private.access_level(p.id, v_me);
+  v_photos := private.photos_allowed(p.id, v_me);
+
+  if v_access <> 'none' then
+    select jsonb_build_object(
+      'id', e.id, 'mood_value', e.mood_value, 'entry_date', e.entry_date,
+      'day_part', e.day_part, 'mood_time', e.mood_time, 'updated_at', e.updated_at,
+      'note', e.note, 'photo_path', case when v_photos then e.photo_path end
+    ) into v_latest
+    from public.mood_entries e where e.id = private.latest_entry_id(p.id);
+
+    if v_access in ('self', 'friend', 'all') then
+      select count(*) into v_count from public.mood_entries where user_id = p.id;
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'id', p.id,
+    'username', p.username,
+    'display_name', p.display_name,
+    'avatar_url', p.avatar_url,
+    'relation', v_rel,
+    'friendship_id', f.id,
+    'access', v_access,
+    'can_see_history', v_access in ('self', 'friend', 'all'),
+    'can_see_photos', v_photos,
+    'is_admin', p.is_admin,
+    'is_muted', exists (select 1 from public.muted_friends m where m.user_id = v_me and m.muted_id = p.id),
+    'entries_count', v_count,
+    'latest', v_latest
+  );
+end;
+$$;
+

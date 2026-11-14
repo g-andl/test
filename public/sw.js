@@ -1,4 +1,4 @@
-/* Service Worker «Настрой»: push-уведомления и офлайн-оболочка */
+/* Service Worker «Настроение»: push-уведомления и офлайн-оболочка */
 const CACHE = "nastroy-v1";
 const SCOPE = self.registration.scope; // учитывает подпапку GitHub Pages
 
@@ -52,9 +52,9 @@ self.addEventListener("push", (e) => {
   try {
     data = e.data ? e.data.json() : {};
   } catch {
-    data = { title: "Настрой", body: e.data ? e.data.text() : "" };
+    data = { title: "Настроение", body: e.data ? e.data.text() : "" };
   }
-  const title = data.title || "Настрой";
+  const title = data.title || "Настроение";
   e.waitUntil(
     Promise.all([
       self.registration.showNotification(title, {

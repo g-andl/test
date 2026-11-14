@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LegalPage } from "@/components/legal/LegalPage";
 import { OPERATOR, SERVICE_NAME, SERVICE_URL } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Пользовательское соглашение — Настрой" };
+export const metadata: Metadata = { title: "Пользовательское соглашение — Настроение" };
 
 export default function Terms() {
   const mail = <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a>;

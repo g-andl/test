@@ -39,7 +39,7 @@ function message(type: string, name: string, mood?: number) {
     case "friend_mood_updated":
       return { title: `${name} ${m?.emoji ?? ""}`.trim(), body: `${name} обновил(а) своё настроение${m ? `: ${m.label}` : ""}` };
     default:
-      return { title: "Настрой", body: "У тебя новое уведомление" };
+      return { title: "Настроение", body: "У тебя новое уведомление" };
   }
 }
 

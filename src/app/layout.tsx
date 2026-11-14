@@ -15,15 +15,15 @@ const manrope = Manrope({
 const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 export const metadata: Metadata = {
-  title: "Настрой — трекер настроения",
+  title: "Настроение — дневник эмоций",
   description: "Узнавай себя. Замечай перемены. Будь ближе к друзьям.",
-  applicationName: "Настрой",
+  applicationName: "Настроение",
   manifest: `${base}/manifest.webmanifest`,
   icons: {
     icon: [{ url: `${base}/icons/icon-192.png`, sizes: "192x192", type: "image/png" }],
     apple: [{ url: `${base}/icons/apple-touch-icon.png`, sizes: "180x180" }],
   },
-  appleWebApp: { capable: true, title: "Настрой", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Настроение", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
 

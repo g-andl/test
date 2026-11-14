@@ -47,7 +47,7 @@ before(async () => {
 });
 
 test('профиль и настройки создаются при регистрации', async () => {
-  const { data: p } = await masha.c.from('profiles').select('*').eq('id', masha.id).single();
+  const { data: p } = await masha.c.from('profiles').select('username, timezone').eq('id', masha.id).single();
   assert.equal(p.username, masha.username);
   assert.equal(p.timezone, 'Asia/Novosibirsk');
   const { data: s } = await masha.c.from('privacy_settings').select('*').single();

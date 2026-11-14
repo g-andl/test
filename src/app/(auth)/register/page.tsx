@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { humanError } from "@/lib/errors";
 import { usernameAvailable } from "@/lib/api";
 import { browserTimezone } from "@/lib/dates";
-import { appUrl } from "@/lib/paths";
+import { makeLoginEmail } from "@/lib/api";
 import { LEGAL_VERSION } from "@/lib/legal";
 
 /** Флажок согласия: большая зона нажатия, ссылки внутри текста открываются отдельно */
@@ -31,7 +31,6 @@ const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [usernameState, setUsernameState] = useState<"idle" | "checking" | "free" | "taken" | "invalid">("idle");
   const [loading, setLoading] = useState(false);
@@ -71,18 +70,18 @@ export default function RegisterPage() {
     usernameState === "taken" ? "Это имя уже занято" : usernameState === "invalid" ? "Только латиница, цифры и _, от 3 до 24 символов" : null;
 
   const valid =
-    name.trim() && usernameState === "free" && email.includes("@") && password.length >= 8 && agreeTerms && agreePd && agreeDist;
+    name.trim() && usernameState === "free" && password.length >= 8 && agreeTerms && agreePd && agreeDist;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid || loading) return;
     setLoading(true);
     setError(null);
+    // Почта не нужна: аккаунту выдаётся служебный адрес, вход — по имени пользователя
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: makeLoginEmail(),
       password,
       options: {
-        emailRedirectTo: appUrl("/confirm/"),
         data: {
           username: username.trim(),
           display_name: name.trim(),
@@ -104,9 +103,9 @@ export default function RegisterPage() {
         <span className="mx-auto mb-5 flex size-16 items-center justify-center rounded-[22px] bg-accent-soft text-accent">
           <MailCheck className="size-8" />
         </span>
-        <h1 className="text-[26px] font-extrabold tracking-tight">Проверь почту</h1>
+        <h1 className="text-[26px] font-extrabold tracking-tight">Готово</h1>
         <p className="mt-2 text-text-2">
-          Мы отправили письмо на <b className="text-text">{email}</b>. Нажми на ссылку в нём, чтобы подтвердить аккаунт.
+          Аккаунт создан. Войди, используя имя пользователя и пароль.
         </p>
         <Link href="/login/" className="mt-8 inline-flex h-12 items-center font-semibold text-accent">
           Вернуться ко входу
@@ -134,14 +133,13 @@ export default function RegisterPage() {
           hint={usernameHint}
           error={usernameError}
         />
-        <Field label="Почта" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
         <Field
           label="Пароль"
           type="password"
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          hint="Не короче 8 символов"
+          hint="Не короче 8 символов. Запомни его: почту мы не спрашиваем"
           error={password && password.length < 8 ? "Не короче 8 символов" : null}
         />
         <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 px-3 py-2">
@@ -179,7 +177,7 @@ export default function RegisterPage() {
         <Button type="submit" size="lg" block loading={loading} disabled={!valid}>
           Зарегистрироваться
         </Button>
-        <p className="text-center text-xs text-muted">Сервис бесплатный. Настрой не является медицинским приложением и не ставит диагнозов.</p>
+        <p className="text-center text-xs text-muted">Сервис бесплатный. Настроение не является медицинским приложением и не ставит диагнозов.</p>
       </form>
       <p className="mt-6 text-center text-[15px] text-text-2">
         Уже есть аккаунт?{" "}

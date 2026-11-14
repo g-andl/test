@@ -50,7 +50,7 @@ async function renderImage(year: number, month: number, entries: EntryLite[], na
 
   ctx.fillStyle = "#8a94a6";
   ctx.font = `600 34px ${font}`;
-  ctx.fillText(`${name} · Настрой`, 120, 160);
+  ctx.fillText(`${name} · Настроение`, 120, 160);
   ctx.fillStyle = "#0f172a";
   ctx.font = `800 76px ${font}`;
   ctx.fillText(`Мой ${MONTHS[month]}`, 120, 250);

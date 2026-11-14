@@ -10,7 +10,8 @@
     "test:e2e": "node tests/e2e/flow.mjs",
     "preview": "npx http-server out -p 3000 -s -c-1",
     "typecheck": "tsc --noEmit",
-    "test:push": "node --test tests/backend/push.test.mjs"
+    "test:push": "node --test tests/backend/push.test.mjs",
+    "test:admin": "node --test tests/backend/admin.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
