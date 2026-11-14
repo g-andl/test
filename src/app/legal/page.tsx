@@ -5,7 +5,7 @@ import { Logo } from "@/components/Logo";
 import { DOCS } from "@/components/legal/LegalPage";
 import { OPERATOR } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Документы — Настроение" };
+export const metadata: Metadata = { title: "Документы — Настрой" };
 
 export default function LegalIndex() {
   return (

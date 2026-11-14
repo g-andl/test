@@ -37,7 +37,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             Узнавай себя. Замечай перемены. Будь ближе к друзьям.
           </h2>
         </div>
-        <p className="text-sm text-white/70">Настроение — это дневник настроения, а не медицинское приложение.</p>
+        <p className="text-sm text-white/70">Настрой — это дневник настроения, а не медицинское приложение.</p>
       </aside>
       <main className="flex flex-1 flex-col px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8 sm:items-center sm:justify-center lg:px-12">
         <div className="mb-10 lg:hidden">

@@ -80,7 +80,7 @@ export default function ProfilePage() {
               }}
             />
           </Card>
-          <p className="px-2 text-center text-xs text-muted">Настроение — дневник настроения, а не медицинское приложение.</p>
+          <p className="px-2 text-center text-xs text-muted">Настрой — дневник настроения, а не медицинское приложение.</p>
         </div>
       </div>
     </>

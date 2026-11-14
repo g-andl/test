@@ -7,7 +7,7 @@ export function Logo({ size = 36 }: { size?: number }) {
         <circle cx="41" cy="27" r="4" fill="#fff" />
         <path d="M20 39c3.5 5 8 7.5 12 7.5S40.5 44 44 39" stroke="#fff" strokeWidth="4.5" fill="none" strokeLinecap="round" />
       </svg>
-      <span className="text-xl font-extrabold tracking-tight">Настроение</span>
+      <span className="text-xl font-extrabold tracking-tight">Настрой</span>
     </span>
   );
 }

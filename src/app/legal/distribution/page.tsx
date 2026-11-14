@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LegalPage } from "@/components/legal/LegalPage";
 import { OPERATOR, SERVICE_NAME, SERVICE_URL } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Согласие на распространение персональных данных — Настроение" };
+export const metadata: Metadata = { title: "Согласие на распространение персональных данных — Настрой" };
 
 export default function Distribution() {
   const mail = <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a>;

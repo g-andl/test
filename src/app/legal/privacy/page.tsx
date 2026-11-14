@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LegalPage } from "@/components/legal/LegalPage";
 import { OPERATOR, SERVICE_NAME, SERVICE_URL } from "@/lib/legal";
 
-export const metadata: Metadata = { title: "Политика обработки персональных данных — Настроение" };
+export const metadata: Metadata = { title: "Политика обработки персональных данных — Настрой" };
 
 export default function PrivacyPolicy() {
   const mail = <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a>;

@@ -177,7 +177,7 @@ export default function RegisterPage() {
         <Button type="submit" size="lg" block loading={loading} disabled={!valid}>
           Зарегистрироваться
         </Button>
-        <p className="text-center text-xs text-muted">Сервис бесплатный. Настроение не является медицинским приложением и не ставит диагнозов.</p>
+        <p className="text-center text-xs text-muted">Сервис бесплатный. Настрой не является медицинским приложением и не ставит диагнозов.</p>
       </form>
       <p className="mt-6 text-center text-[15px] text-text-2">
         Уже есть аккаунт?{" "}
