@@ -87,7 +87,6 @@ try {
   await page.getByLabel("Имя", { exact: true }).fill("Георгий");
   await page.getByLabel("Имя пользователя").fill(`george_${run}`);
   await page.getByText("✓ Имя свободно").waitFor();
-  await page.getByLabel("Почта").fill(email);
   await page.getByLabel("Пароль", { exact: true }).fill("Passw0rd!x");
   // Без согласий кнопка неактивна
   assert.equal(await page.getByRole("button", { name: "Зарегистрироваться" }).isDisabled(), true);

@@ -9,7 +9,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { supabase } from "@/lib/supabase";
-import { deleteAccount } from "@/lib/api";
+import { deleteAccount, LOGIN_DOMAIN } from "@/lib/api";
 import { humanError } from "@/lib/errors";
 
 export default function AccountPage() {
@@ -61,13 +61,16 @@ export default function AccountPage() {
       <PageHeader back title="Аккаунт" bell={false} />
       <div className="flex max-w-xl flex-col gap-4">
         <Card>
-          <p className="text-[13px] text-muted">Почта</p>
-          <p className="text-[15px] font-semibold">{session?.user.email}</p>
+          <p className="text-[13px] text-muted">Логин для входа</p>
+          <p className="text-[15px] font-semibold">@{profile?.username}</p>
+          {session?.user.email && !session.user.email.endsWith(`@${LOGIN_DOMAIN}`) && (
+            <p className="mt-1 text-[13px] text-muted">или почта {session.user.email}</p>
+          )}
         </Card>
         <Card>
           <p className="mb-4 text-[15px] font-bold">Сменить пароль</p>
           <form onSubmit={changePassword} className="flex flex-col gap-4">
-            <input type="email" autoComplete="username" value={session?.user.email ?? ""} readOnly hidden />
+            <input type="text" autoComplete="username" value={profile?.username ?? ""} readOnly hidden />
             <Field label="Текущий пароль" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
             <Field label="Новый пароль" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} hint="Не короче 8 символов" />
             {err && <p role="alert" className="rounded-2xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{err}</p>}

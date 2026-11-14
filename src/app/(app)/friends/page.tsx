@@ -102,7 +102,9 @@ export default function FriendsPage() {
                   user={u}
                   href={`/user/?u=${u.username}`}
                   right={
-                    friendIds.has(u.id) ? (
+                    u.is_admin ? (
+                      <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">Администратор</span>
+                    ) : friendIds.has(u.id) ? (
                       <span className="text-sm font-semibold text-success">В друзьях</span>
                     ) : pending?.direction === "outgoing" ? (
                       <span className="flex items-center gap-1 text-sm font-semibold text-muted"><Clock3 className="size-4" /> Заявка</span>

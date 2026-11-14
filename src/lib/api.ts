@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 import type {
   ActivityRow, EntryLite, FriendRequest, FriendRow, MoodEntry, NotificationRow,
   NotificationSettings, PrivacySettings, Profile, UserProfileView, DayPart, MoodValue,
+  AdminUser, RecoveryRequest,
 } from "./types";
 import { compressImage } from "./image";
 
@@ -27,12 +28,15 @@ export const keys = {
 };
 
 // ---------- Профиль ----------
+// Дата создания аккаунта закрыта на уровне базы — выбираем только разрешённые колонки
+const PROFILE_COLS = "id, username, display_name, avatar_url, timezone, onboarded, is_admin";
+
 export async function fetchProfile(uid: string): Promise<Profile | null> {
-  return check(await supabase.from("profiles").select("*").eq("id", uid).maybeSingle()) as Profile | null;
+  return check(await supabase.from("profiles").select(PROFILE_COLS).eq("id", uid).maybeSingle()) as Profile | null;
 }
 
 export async function updateProfile(uid: string, patch: Partial<Pick<Profile, "username" | "display_name" | "avatar_url" | "timezone" | "onboarded">>) {
-  return check(await supabase.from("profiles").update(patch).eq("id", uid).select().single()) as Profile;
+  return check(await supabase.from("profiles").update(patch).eq("id", uid).select(PROFILE_COLS).single()) as Profile;
 }
 
 export async function usernameAvailable(username: string): Promise<boolean> {
@@ -133,12 +137,12 @@ export async function searchUsers(q: string, myId: string) {
   return check(
     await supabase
       .from("profiles")
-      .select("id, username, display_name, avatar_url")
+      .select("id, username, display_name, avatar_url, is_admin")
       .or(`username.ilike.${clean}%,display_name.ilike.%${clean}%`)
       .neq("id", myId)
       .order("username")
       .limit(20),
-  ) as Pick<Profile, "id" | "username" | "display_name" | "avatar_url">[];
+  ) as Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "is_admin">[];
 }
 export async function sendFriendRequest(userId: string): Promise<"pending" | "friends"> {
   return check(await supabase.rpc("send_friend_request", { p_addressee: userId })) as "pending" | "friends";
@@ -159,7 +163,12 @@ export async function fetchUserEntries(userId: string, from = "2000-01-01", to =
   return (check(await supabase.rpc("get_user_entries", { p_user: userId, p_from: from, p_to: to })) ?? []) as EntryLite[];
 }
 export async function setMuted(myId: string, friendId: string, muted: boolean) {
-  if (muted) check(await supabase.from("muted_friends").upsert({ user_id: myId, muted_id: friendId }));
+  if (muted) {
+    // Обычная вставка: права на изменение строк у пользователя нет (upsert требует UPDATE).
+    // Повтор (уже отключено) — не ошибка.
+    const res = await supabase.from("muted_friends").insert({ user_id: myId, muted_id: friendId });
+    if (res.error && res.error.code !== "23505") throw res.error;
+  }
   else check(await supabase.from("muted_friends").delete().eq("user_id", myId).eq("muted_id", friendId));
 }
 
@@ -215,4 +224,67 @@ export async function deleteAccount(uid: string) {
   await removeAllFiles("avatars", uid);
   check(await supabase.rpc("delete_account"));
   await supabase.auth.signOut({ scope: "local" });
+}
+
+// ---------- Вход без почты ----------
+/** Домен служебных адресов для аккаунтов без почты */
+export const LOGIN_DOMAIN = "users.nastroy.local";
+
+/** Новый служебный адрес для регистрации без почты */
+export function makeLoginEmail() {
+  const rnd = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("");
+  return `u_${rnd}@${LOGIN_DOMAIN}`;
+}
+
+/** Имя пользователя или почта → адрес для входа */
+export async function resolveLoginEmail(login: string): Promise<string | null> {
+  const v = login.trim().toLowerCase().replace(/^@/, "");
+  if (v.includes("@")) return v;
+  return (check(await supabase.rpc("login_email", { p_username: v })) as string | null) ?? null;
+}
+
+export async function submitRecoveryRequest(username: string, contact: string, message: string) {
+  check(await supabase.rpc("submit_recovery_request", { p_username: username, p_contact: contact, p_message: message }));
+}
+
+// ---------- Админ-панель (права проверяет база) ----------
+export async function amIAdmin(): Promise<boolean> {
+  return Boolean(check(await supabase.rpc("am_i_admin")));
+}
+export async function adminListUsers(search: string, limit = 50, offset = 0): Promise<AdminUser[]> {
+  return (check(await supabase.rpc("admin_list_users", { p_search: search, p_limit: limit, p_offset: offset })) ?? []) as AdminUser[];
+}
+export async function adminUserEntries(userId: string): Promise<MoodEntry[]> {
+  return (check(await supabase.rpc("admin_user_entries", { p_user: userId })) ?? []) as MoodEntry[];
+}
+export async function adminUpdateEntry(entryId: string, mood: number, note: string) {
+  check(await supabase.rpc("admin_update_entry", { p_entry: entryId, p_mood: mood, p_note: note }));
+}
+export async function adminDeleteEntry(entry: MoodEntry) {
+  if (entry.photo_path) await supabase.storage.from("mood-photos").remove([entry.photo_path]);
+  check(await supabase.rpc("admin_delete_entry", { p_entry: entry.id }));
+}
+export async function adminSetPassword(userId: string, password: string) {
+  check(await supabase.rpc("admin_set_password", { p_user: userId, p_password: password }));
+}
+export async function adminUpdateProfile(userId: string, displayName: string, username: string) {
+  check(await supabase.rpc("admin_update_profile", { p_user: userId, p_display_name: displayName, p_username: username }));
+}
+export async function adminDeleteUser(userId: string) {
+  // Сначала файлы (фото и аватары), затем аккаунт — данные удалятся каскадно
+  for (const bucket of ["mood-photos", "avatars"]) {
+    for (;;) {
+      const { data } = await supabase.storage.from(bucket).list(userId, { limit: 100 });
+      if (!data?.length) break;
+      await supabase.storage.from(bucket).remove(data.map((f) => `${userId}/${f.name}`));
+      if (data.length < 100) break;
+    }
+  }
+  check(await supabase.rpc("admin_delete_user", { p_user: userId }));
+}
+export async function adminListRecovery(): Promise<RecoveryRequest[]> {
+  return (check(await supabase.rpc("admin_list_recovery")) ?? []) as RecoveryRequest[];
+}
+export async function adminUpdateRecovery(id: string, status: RecoveryRequest["status"], note: string) {
+  check(await supabase.rpc("admin_update_recovery", { p_id: id, p_status: status, p_note: note }));
 }

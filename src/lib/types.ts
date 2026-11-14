@@ -8,7 +8,36 @@ export interface Profile {
   avatar_url: string | null;
   timezone: string;
   onboarded: boolean;
+  /** Аккаунт администратора: виден с пометкой, в друзья не добавляется */
+  is_admin: boolean;
+}
+
+/** Строка списка аккаунтов в админ-панели */
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
   created_at: string;
+  last_sign_in_at: string | null;
+  entries_count: number;
+  friends_count: number;
+  public_visibility: string | null;
+  is_admin: boolean;
+  total: number;
+}
+
+export interface RecoveryRequest {
+  id: string;
+  username: string;
+  user_id: string | null;
+  contact: string;
+  message: string;
+  status: "new" | "in_progress" | "done";
+  admin_note: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MoodEntry {
@@ -125,6 +154,7 @@ export interface UserProfileView {
   access: "self" | "friend" | "all" | "latest" | "none";
   can_see_history: boolean;
   can_see_photos: boolean;
+  is_admin: boolean;
   is_muted: boolean;
   entries_count: number | null;
   latest: (EntryLite & { updated_at: string }) | null;
