@@ -90,7 +90,7 @@ try {
   await sheet.getByRole("button", { name: "Добавить отметку" }).click();
   await sheet.getByRole("radiogroup", { name: "Настроение новой отметки" }).getByRole("radio", { name: "Отлично" }).click();
   await sheet.getByLabel("Заметка новой отметки").fill("добавлено админом");
-  await sheet.getByRole("button", { name: "Добавить", exact: true }).click();
+  await sheet.getByRole("button", { name: "Добавить", exact: true }).last().click();
   await page.getByText("Отметка добавлена").waitFor();
   const { data: added } = await admin.from("mood_entries").select("mood_value").eq("user_id", userId).eq("note", "добавлено админом");
   assert.equal(added.length, 1);
@@ -139,7 +139,7 @@ try {
   // 4г. Блокировка: админ блокирует на 7 дней → пользователь входит и видит экран блокировки → разблокировка
   await page.getByRole("tab", { name: /Пользователи/ }).click();
   await page.getByLabel("Поиск пользователей").fill(`lost_${run}`);
-  await page.getByText("Потеряшка").click();
+  await page.getByRole("button", { name: new RegExp(`@lost_${run}`) }).click();
   const sheet2 = page.getByRole("dialog");
   await sheet2.getByRole("heading", { name: "Блокировка" }).waitFor();
   await sheet2.getByRole("radio", { name: "7 дней" }).click();
@@ -170,7 +170,7 @@ try {
 
   // Разблокировка: экран исчезает сам (проверка раз в 30 секунд — ускоряем перезагрузкой)
   await sheet2.waitFor({ state: "detached" }).catch(() => undefined);
-  await page.getByText("Потеряшка").click();
+  await page.getByRole("button", { name: new RegExp(`@lost_${run}`) }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Разблокировать" }).click();
   await page.getByText("Аккаунт разблокирован").waitFor();
   await page.getByRole("button", { name: "Закрыть" }).click();

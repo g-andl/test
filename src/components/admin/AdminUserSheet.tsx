@@ -6,12 +6,14 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Avatar } from "@/components/ui/Avatar";
+import { BadgePill, useBadges } from "@/components/badges/StatusBadge";
+import { BadgeForm } from "@/components/badges/BadgeEditor";
 import { Spinner } from "@/components/ui/States";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser,
+  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser,
 } from "@/lib/api";
 import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
 import { formatRelativeDay, formatTime, todayKey, combineDateTime } from "@/lib/dates";
@@ -582,6 +584,91 @@ function SupportSection({ user }: { user: AdminUser }) {
   );
 }
 
+
+/** Статус пользователя: выбрать из готовых, снять или придумать новый со своим цветом */
+function StatusSection({ user }: { user: AdminUser }) {
+  const toast = useToast();
+  const badges = useBadges();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const current = badges.data?.byUser[user.id] ?? null;
+
+  async function assign(key: string, fn: () => Promise<unknown>, ok: string, after?: () => void) {
+    setBusy(key);
+    try {
+      await fn();
+      toast(ok);
+      invalidate("badges");
+      after?.();
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 font-bold">Статус {current && <BadgePill name={current.name} color={current.color} className="ml-1 align-middle" />}</h3>
+      <p className="mb-2 text-[13px] text-muted">Цветная пометка рядом с именем, её видят все.</p>
+      {badges.loading ? (
+        <div className="flex justify-center py-3"><Spinner /></div>
+      ) : (
+        <div role="radiogroup" aria-label="Статус пользователя" className="flex flex-wrap items-center gap-2">
+          <button
+            role="radio"
+            aria-checked={!current}
+            disabled={busy !== null}
+            onClick={() => assign("none", () => adminSetUserBadge(user.id, null), "Статус снят")}
+            className={`h-9 rounded-full px-3 text-sm font-semibold transition active:scale-95 ${!current ? "bg-ink text-ink-fg" : "bg-surface-2 text-text-2"}`}
+          >
+            Без статуса
+          </button>
+          {badges.data?.list.map((b) => (
+            <button
+              key={b.id}
+              role="radio"
+              aria-checked={current?.id === b.id}
+              aria-label={b.name}
+              disabled={busy !== null}
+              onClick={() => assign(b.id, () => adminSetUserBadge(user.id, b.id), `Статус «${b.name}» выдан`)}
+              className={`rounded-full p-0.5 transition active:scale-95 ${current?.id === b.id ? "ring-2 ring-text" : "ring-1 ring-transparent"}`}
+            >
+              <BadgePill name={b.name} color={b.color} className="!px-3 !py-1.5 !text-[13px]" />
+            </button>
+          ))}
+          <button
+            onClick={() => setCreating((v) => !v)}
+            className="h-9 rounded-full border-2 border-dashed border-line px-3 text-sm font-semibold text-text-2"
+          >
+            + Свой статус
+          </button>
+        </div>
+      )}
+      {creating && (
+        <div className="mt-3 rounded-[20px] bg-surface-2 p-3">
+          <p className="mb-2 text-sm font-bold">Новый статус для {user.display_name}</p>
+          <BadgeForm
+            submitLabel="Создать и выдать"
+            busy={busy === "create"}
+            onSubmit={(name, color) =>
+              assign(
+                "create",
+                async () => {
+                  const id = await adminSaveBadge(null, name, color);
+                  await adminSetUserBadge(user.id, id);
+                },
+                "Статус создан и выдан",
+                () => setCreating(false),
+              )
+            }
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** Всё о пользователе: данные, смена пароля, редактирование, отметки, удаление */
 export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
   const toast = useToast();
@@ -666,6 +753,7 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
       </section>
 
       {!user.is_admin && <BlockSection key={user.id + String(user.is_blocked)} user={user} onChanged={() => invalidate("admin-users")} />}
+      {!user.is_admin && <StatusSection user={user} />}
       <ContactEmailSection user={user} onSaved={() => invalidate("admin-users")} />
       <PrivacySection userId={user.id} onSaved={() => invalidate("admin-users")} />
       <ActivitySection userId={user.id} />

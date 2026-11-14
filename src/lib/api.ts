@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import type {
   ActivityRow, EntryLite, FriendRequest, FriendRow, MoodEntry, NotificationRow,
   NotificationSettings, PrivacySettings, Profile, UserProfileView, DayPart, MoodValue,
-  AdminUser, RecoveryRequest, BlockStatus, SupportWall,
+  AdminUser, RecoveryRequest, BlockStatus, SupportWall, Badge,
 } from "./types";
 import { compressImage } from "./image";
 
@@ -25,6 +25,7 @@ export const keys = {
   user: (username: string) => `user:${username}`,
   userEntries: (id: string) => `userEntries:${id}`,
   support: (id: string) => `support:${id}`,
+  badges: "badges",
   photo: (path: string) => `photo:${path}`,
 };
 
@@ -361,4 +362,41 @@ export async function adminEditSupportMessage(id: string, body: string) {
 }
 export async function adminPostSupportMessage(recipientId: string, authorUsername: string, body: string) {
   check(await supabase.rpc("admin_post_support_message", { p_recipient: recipientId, p_author_username: authorUsername, p_body: body }));
+}
+
+// ---------- Статусы пользователей ----------
+export interface BadgeData {
+  list: Badge[];
+  /** пользователь → его статус */
+  byUser: Record<string, Badge>;
+  /** сколько у каждого статуса владельцев */
+  counts: Record<string, number>;
+}
+export async function fetchBadgeData(): Promise<BadgeData> {
+  const [b, ub] = await Promise.all([
+    supabase.from("badges").select("id, name, color").order("created_at"),
+    supabase.from("user_badges").select("user_id, badge_id"),
+  ]);
+  if (b.error) throw b.error;
+  if (ub.error) throw ub.error;
+  const list = (b.data ?? []) as Badge[];
+  const byId = new Map(list.map((x) => [x.id, x]));
+  const byUser: Record<string, Badge> = {};
+  const counts: Record<string, number> = {};
+  for (const r of ub.data ?? []) {
+    const badge = byId.get(r.badge_id as string);
+    if (!badge) continue;
+    byUser[r.user_id as string] = badge;
+    counts[badge.id] = (counts[badge.id] ?? 0) + 1;
+  }
+  return { list, byUser, counts };
+}
+export async function adminSaveBadge(id: string | null, name: string, color: string): Promise<string> {
+  return check(await supabase.rpc("admin_save_badge", { p_id: id, p_name: name, p_color: color })) as string;
+}
+export async function adminDeleteBadge(id: string) {
+  check(await supabase.rpc("admin_delete_badge", { p_id: id }));
+}
+export async function adminSetUserBadge(userId: string, badgeId: string | null) {
+  check(await supabase.rpc("admin_set_user_badge", { p_user: userId, p_badge: badgeId }));
 }

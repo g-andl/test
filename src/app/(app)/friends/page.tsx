@@ -267,7 +267,7 @@ export default function FriendsPage() {
                   return (
                     <li key={a.entry_id + a.updated_at}>
                       <UserRow
-                        user={a}
+                        user={{ ...a, id: a.user_id }}
                         href={`/user/?u=${a.username}`}
                         sub={
                           <span>

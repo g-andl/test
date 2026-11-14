@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
 import { Field } from "@/components/ui/Field";
 import { Avatar } from "@/components/ui/Avatar";
+import { StatusBadge, BadgePill, useBadges } from "@/components/badges/StatusBadge";
+import { BadgeForm } from "@/components/badges/BadgeEditor";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/States";
@@ -13,7 +15,7 @@ import { AdminUserSheet, fmtDateTime } from "@/components/admin/AdminUserSheet";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
-import { adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery } from "@/lib/api";
+import { adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery, adminSaveBadge, adminDeleteBadge } from "@/lib/api";
 import { humanError } from "@/lib/errors";
 import { plural } from "@/lib/dates";
 import type { AdminUser, RecoveryRequest } from "@/lib/types";
@@ -165,10 +167,68 @@ function AdminSettings() {
   );
 }
 
+/** Управление статусами: создать, изменить название и цвет, удалить */
+function BadgesTab() {
+  const toast = useToast();
+  const badges = useBadges();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function run(key: string, fn: () => Promise<unknown>, ok: string) {
+    setBusy(key);
+    try {
+      await fn();
+      toast(ok);
+      invalidate("badges");
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+  const list = badges.data?.list ?? [];
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <section className="rounded-[22px] bg-surface p-4 shadow-card md:col-span-2">
+        <h2 className="mb-1 text-[17px] font-bold">Новый статус</h2>
+        <p className="mb-3 text-[13px] text-muted">Придумай название и выбери цвет. Потом выдай его пользователю в его карточке.</p>
+        <BadgeForm key={list.length} submitLabel="Создать" busy={busy === "new"} onSubmit={(name, color) => run("new", () => adminSaveBadge(null, name, color), "Статус создан")} />
+      </section>
+      <section className="md:col-span-2">
+        <h2 className="mb-2 text-[17px] font-bold">Все статусы {list.length ? `(${list.length})` : ""}</h2>
+        <p className="mb-3 flex items-center gap-2 text-[13px] text-muted">
+          У администратора встроенная пометка <BadgePill name="Администратор" color="#4d8df7" />
+        </p>
+        {badges.loading ? (
+          <Skeleton className="h-32" />
+        ) : !list.length ? (
+          <EmptyState icon={<ShieldCheck />} title="Статусов пока нет" text="Создай первый выше" />
+        ) : (
+          <ul className="grid gap-3 md:grid-cols-2">
+            {list.map((b) => (
+              <li key={b.id + b.name + b.color} className="rounded-[22px] bg-surface p-4 shadow-card">
+                <BadgeForm
+                  initialName={b.name}
+                  initialColor={b.color}
+                  submitLabel="Сохранить"
+                  busy={busy === b.id}
+                  holders={badges.data?.counts[b.id]}
+                  onSubmit={(name, color) => run(b.id, () => adminSaveBadge(b.id, name, color), "Статус изменён")}
+                  onDelete={() => run(b.id, () => adminDeleteBadge(b.id), "Статус удалён")}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { ready, session, profile, signOut } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<"users" | "recovery" | "settings">("users");
+  const [tab, setTab] = useState<"users" | "recovery" | "badges" | "settings">("users");
   const [reqTab, setReqTab] = useState<RecoveryRequest["status"]>("new");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
@@ -270,6 +330,7 @@ export default function AdminPage() {
           options={[
             { value: "users", label: `Пользователи${total ? ` · ${total}` : ""}` },
             { value: "recovery", label: `Заявки${newCount ? ` · ${newCount}` : ""}` },
+            { value: "badges", label: "Статусы" },
             { value: "settings", label: "Настройки" },
           ]}
         />
@@ -285,6 +346,8 @@ export default function AdminPage() {
 
         {tab === "settings" ? (
           <AdminSettings />
+        ) : tab === "badges" ? (
+          <BadgesTab />
         ) : tab === "users" ? (
           <>
             <div className="relative mb-4">
@@ -315,6 +378,7 @@ export default function AdminPage() {
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-2">
                             <span className="truncate font-bold">{u.display_name}</span>
+                            <StatusBadge userId={u.id} />
                             {u.is_admin && <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">Админ</span>}
                             {u.is_blocked && <span className="shrink-0 rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-bold text-danger">Заблокирован</span>}
                           </span>

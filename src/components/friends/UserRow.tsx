@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
+import { StatusBadge } from "@/components/badges/StatusBadge";
 
 /** Строка пользователя: аватар, имя, подпись, действия справа */
 export function UserRow({
@@ -8,7 +9,7 @@ export function UserRow({
   right,
   href,
 }: {
-  user: { username: string; display_name: string; avatar_url: string | null };
+  user: { id?: string; username: string; display_name: string; avatar_url: string | null; is_admin?: boolean };
   sub?: React.ReactNode;
   right?: React.ReactNode;
   href?: string;
@@ -17,7 +18,10 @@ export function UserRow({
     <>
       <Avatar src={user.avatar_url} name={user.display_name} size={48} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-bold">{user.display_name}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-[15px] font-bold">{user.display_name}</span>
+          <StatusBadge userId={user.id} isAdmin={user.is_admin} />
+        </span>
         <span className="block truncate text-[13px] text-muted">{sub ?? `@${user.username}`}</span>
       </span>
     </>

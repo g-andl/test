@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Heart, Send, Trash2, Lock } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
+import { StatusBadge } from "@/components/badges/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/States";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -45,6 +46,7 @@ export function MessageRow({ m, onDeleted }: { m: SupportMessage; onDeleted: () 
       <div className="min-w-0 flex-1">
         <p className="flex items-baseline gap-2 text-sm">
           <Link href={`/user/?u=${m.author_username}`} className="truncate font-bold">{m.author_display_name}</Link>
+          <StatusBadge userId={m.author_id} />
           <span className="shrink-0 text-xs text-muted">{timeAgo(m.created_at)}</span>
         </p>
         <p className="mt-0.5 whitespace-pre-line break-words text-[15px] leading-snug text-text-2">{m.body}</p>

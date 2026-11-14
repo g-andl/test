@@ -88,6 +88,13 @@ export interface PrivacySettings {
   support_view: "all" | "friends" | "owner";
 }
 
+/** Статус пользователя: цветная пометка рядом с именем */
+export interface Badge {
+  id: string;
+  name: string;
+  color: string; // #rrggbb
+}
+
 export interface SupportMessage {
   id: string;
   body: string;
