@@ -163,7 +163,12 @@ export async function fetchUserEntries(userId: string, from = "2000-01-01", to =
   return (check(await supabase.rpc("get_user_entries", { p_user: userId, p_from: from, p_to: to })) ?? []) as EntryLite[];
 }
 export async function setMuted(myId: string, friendId: string, muted: boolean) {
-  if (muted) check(await supabase.from("muted_friends").upsert({ user_id: myId, muted_id: friendId }));
+  if (muted) {
+    // Обычная вставка: права на изменение строк у пользователя нет (upsert требует UPDATE).
+    // Повтор (уже отключено) — не ошибка.
+    const res = await supabase.from("muted_friends").insert({ user_id: myId, muted_id: friendId });
+    if (res.error && res.error.code !== "23505") throw res.error;
+  }
   else check(await supabase.from("muted_friends").delete().eq("user_id", myId).eq("muted_id", friendId));
 }
 
