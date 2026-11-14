@@ -35,8 +35,11 @@ export function MoodSheet({
 }) {
   const { session } = useAuth();
   const toast = useToast();
-  const isToday = date === todayKey();
+  const openedToday = date === todayKey();
 
+  // Дату можно поменять прямо в окне; по умолчанию — день, с которого открыли
+  const [day, setDay] = useState(date);
+  const isToday = day === todayKey();
   const [mood, setMood] = useState<MoodValue | null>(null);
   const [timeChoice, setTimeChoice] = useState<TimeChoice>("now");
   const [exact, setExact] = useState("12:00");
@@ -55,6 +58,7 @@ export function MoodSheet({
     if (!open) return;
     /* eslint-disable react-hooks/set-state-in-effect -- сброс формы при каждом открытии панели */
     setConfirmDelete(false);
+    setDay(existing ? existing.entry_date : date);
     setPhoto(null);
     setPreview(null);
     setRemovePhoto(false);
@@ -68,14 +72,14 @@ export function MoodSheet({
       setMood(initialMood ?? null);
       const now = new Date();
       // Сегодня — «Сейчас»; за другой день время выбирают сами (по умолчанию вечер)
-      setTimeChoice(isToday ? "now" : "exact");
-      setExact(isToday ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}` : "20:00");
+      setTimeChoice(openedToday ? "now" : "exact");
+      setExact(openedToday ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}` : "20:00");
       let draft = "";
       try { draft = localStorage.getItem(draftKey(date)) ?? ""; } catch {}
       setNote(draft);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [open, existing, initialMood, date, isToday]);
+  }, [open, existing, initialMood, date, openedToday]);
 
   // Черновик заметки сохраняется на устройстве — не потеряется при обрыве сети
   useEffect(() => {
@@ -109,8 +113,8 @@ export function MoodSheet({
       h = DAY_PARTS.find((p) => p.value === timeChoice)!.hour;
       m = 0;
     }
-    return { time: combineDateTime(date, h, m), part: dayPartByHour(h) };
-  }, [timeChoice, exact, date]);
+    return { time: combineDateTime(day, h, m), part: dayPartByHour(h) };
+  }, [timeChoice, exact, day]);
 
   async function onSave() {
     if (!mood || !session || saving) return;
@@ -119,7 +123,7 @@ export function MoodSheet({
       await saveEntry(
         session.user.id,
         {
-          entry_date: date,
+          entry_date: day,
           mood_value: mood,
           note,
           mood_time: resolved.time.toISOString(),
@@ -172,16 +176,16 @@ export function MoodSheet({
   const selected = mood ? moodOf(mood) : null;
   const shownPhoto = preview ?? (!removePhoto ? existingPhoto.data : null);
 
-  const timeOptions: { value: TimeChoice; label: string }[] = [
-    ...(isToday ? [{ value: "now" as const, label: "Сейчас" }] : []),
-    { value: "exact", label: isToday ? "Выбрать время" : "Время" },
-  ];
+  function pickChoice(v: TimeChoice) {
+    setTimeChoice(v);
+    if (v === "now") setDay(todayKey());
+  }
 
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={existing ? "Изменить отметку" : isToday ? "Как ты сейчас?" : `Отметка: ${formatRelativeDay(date).toLowerCase()}`}
+      title={existing ? "Изменить отметку" : isToday ? "Как ты сейчас?" : `Отметка: ${formatRelativeDay(day).toLowerCase()}`}
       footer={
         confirmDelete ? (
           <div className="flex gap-2">
@@ -245,29 +249,45 @@ export function MoodSheet({
       <h3 className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-semibold text-text-2">
         <Clock className="size-4" /> Когда
       </h3>
-      <div className="flex gap-2">
-        {timeOptions.map((o) => (
-          <button
-            key={o.value}
-            onClick={() => setTimeChoice(o.value)}
-            aria-pressed={timeChoice === o.value}
-            className={`h-10 shrink-0 whitespace-nowrap rounded-full px-5 text-sm font-semibold transition ${timeChoice === o.value ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
+      {isToday && (
+        <div className="flex gap-2">
+          {([["now", "Сейчас"], ["exact", "Дата и время"]] as const).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => pickChoice(value)}
+              aria-pressed={timeChoice === value}
+              className={`h-10 min-w-0 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition ${timeChoice === value ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       {timeChoice === "exact" && (
-        <input
-          type="time"
-          value={exact}
-          onChange={(e) => setExact(e.target.value)}
-          aria-label="Точное время"
-          className="mt-3 h-12 w-full rounded-2xl bg-surface-2 px-4 text-base outline-none focus:ring-2 focus:ring-accent"
-        />
+        <div className="mt-3 grid grid-cols-[3fr_2fr] gap-2">
+          <input
+            type="date"
+            value={day}
+            max={todayKey()}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const v = e.target.value > todayKey() ? todayKey() : e.target.value;
+              setDay(v);
+            }}
+            aria-label="Дата"
+            className="h-12 w-full min-w-0 appearance-none rounded-2xl bg-surface-2 px-3 text-base outline-none focus:ring-2 focus:ring-accent"
+          />
+          <input
+            type="time"
+            value={exact}
+            onChange={(e) => setExact(e.target.value)}
+            aria-label="Точное время"
+            className="h-12 w-full min-w-0 appearance-none rounded-2xl bg-surface-2 px-3 text-base outline-none focus:ring-2 focus:ring-accent"
+          />
+        </div>
       )}
       <p className="mt-2 text-[13px] text-muted">
-        {DAY_PARTS.find((p) => p.value === resolved.part)!.label}, {formatTime(resolved.time.toISOString())}
+        {(() => { const l = DAY_PARTS.find((p) => p.value === resolved.part)!.label; return isToday ? l : `${formatRelativeDay(day)}, ${l.toLowerCase()}`; })()}, {formatTime(resolved.time.toISOString())}
       </p>
 
       {/* Заметка */}

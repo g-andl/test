@@ -110,7 +110,7 @@ try {
   await page.getByRole("button", { name: "Хорошо" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.waitFor();
-  await dialog.getByRole("button", { name: "Выбрать время" }).click();
+  await dialog.getByRole("button", { name: "Дата и время" }).click();
   await dialog.getByLabel("Точное время").fill("20:00");
   await dialog.getByLabel(/Заметка/).fill("Хороший день, закончил проект");
   await dialog.locator('input[type="file"]').setInputFiles("public/icons/icon-512.png");
@@ -140,7 +140,7 @@ try {
 
   // Вторая отметка в тот же день — другое время суток
   await page.getByRole("button", { name: "Плохо" }).first().click();
-  await dialog.getByRole("button", { name: "Выбрать время" }).click();
+  await dialog.getByRole("button", { name: "Дата и время" }).click();
   await dialog.getByLabel("Точное время").fill("08:00");
   await dialog.getByRole("button", { name: "Отметить настроение" }).click();
   await page.getByText("Настроение отмечено").waitFor();
