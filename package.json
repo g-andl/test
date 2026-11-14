@@ -11,7 +11,8 @@
     "preview": "npx http-server out -p 3000 -s -c-1",
     "typecheck": "tsc --noEmit",
     "test:push": "node --test tests/backend/push.test.mjs",
-    "test:admin": "node --test tests/backend/admin.test.mjs"
+    "test:admin": "node --test tests/backend/admin.test.mjs",
+    "test:e2e:admin": "node tests/e2e/admin.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

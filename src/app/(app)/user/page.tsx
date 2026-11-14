@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, UserPlus, Check, Clock3, BellOff, Bell, UserMinus, CalendarDays, BarChart3, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Lock, ShieldCheck, UserPlus, Check, Clock3, BellOff, Bell, UserMinus, CalendarDays, BarChart3, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -121,8 +121,11 @@ function UserProfile() {
   const latest = p.latest;
   const lm = latest ? moodOf(latest.mood_value) : null;
 
-  const relationAction =
-    isFriend ? (
+  const relationAction = p.is_admin ? (
+    <span className="flex h-11 items-center gap-1.5 rounded-2xl bg-accent-soft px-4 text-sm font-semibold text-accent">
+      <ShieldCheck className="size-4" /> Администратор сервиса
+    </span>
+  ) : isFriend ? (
       <div className="flex items-center gap-2">
         <span className="flex h-11 items-center gap-1.5 rounded-2xl bg-accent-soft px-4 text-sm font-semibold text-accent">
           <Check className="size-4" /> В друзьях
@@ -178,7 +181,13 @@ function UserProfile() {
           )}
         </Card>
 
-        {p.access === "none" ? (
+        {p.is_admin ? (
+          <Card>
+            <p className="text-center text-sm text-text-2">
+              Администратор помогает с доступом к аккаунту. В друзья его добавить нельзя. Если не получается войти — оставь заявку на странице входа.
+            </p>
+          </Card>
+        ) : p.access === "none" ? (
           <Card>
             <EmptyState icon={<Lock />} title="Закрытый профиль" text="Настроение видят только друзья. Отправь заявку, чтобы видеть его." />
           </Card>
@@ -221,7 +230,7 @@ function UserProfile() {
           </section>
         )}
 
-        {p.can_see_history && latest && (
+        {!p.is_admin && p.can_see_history && latest && (
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" size="lg" onClick={() => setPanel("calendar")}>
               <CalendarDays className="size-5" /> Календарь

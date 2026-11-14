@@ -138,6 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     if (!session) router.replace(`/login/?next=${encodeURIComponent(pathname)}`);
+    else if (profile?.is_admin) router.replace("/admin/");
     else if (profile && !profile.onboarded) router.replace("/onboarding/");
   }, [ready, session, profile, router, pathname]);
 
@@ -148,7 +149,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  if (!ready || !session || !profile || !profile.onboarded) {
+  if (!ready || !session || !profile || !profile.onboarded || profile.is_admin) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
         <Spinner />
