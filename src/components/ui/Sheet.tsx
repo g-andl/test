@@ -21,20 +21,29 @@ export function Sheet({
   const drag = useDragControls();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Блокируем прокрутку страницы и закрываем по Escape
+  // Последний onClose храним в ref: эффект ниже не должен перезапускаться
+  // при каждой перерисовке родителя (иначе фокус уходит из поля ввода после каждой буквы)
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Блокируем прокрутку страницы, закрываем по Escape, фокус — один раз при открытии
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     window.addEventListener("keydown", onKey);
-    const t = setTimeout(() => panelRef.current?.focus(), 50);
+    const t = setTimeout(() => {
+      if (!panelRef.current?.contains(document.activeElement)) panelRef.current?.focus();
+    }, 50);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
       clearTimeout(t);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <AnimatePresence>
