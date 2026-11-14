@@ -64,9 +64,10 @@ export function MoodSheet({
       setNote(existing.note ?? "");
     } else {
       setMood(initialMood ?? null);
-      setTimeChoice(isToday ? "now" : "evening");
       const now = new Date();
-      setExact(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
+      // Сегодня — «Сейчас»; за другой день время выбирают сами (по умолчанию вечер)
+      setTimeChoice(isToday ? "now" : "exact");
+      setExact(isToday ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}` : "20:00");
       let draft = "";
       try { draft = localStorage.getItem(draftKey(date)) ?? ""; } catch {}
       setNote(draft);
@@ -163,8 +164,7 @@ export function MoodSheet({
 
   const timeOptions: { value: TimeChoice; label: string }[] = [
     ...(isToday ? [{ value: "now" as const, label: "Сейчас" }] : []),
-    ...DAY_PARTS.map((p) => ({ value: p.value, label: p.short })),
-    { value: "exact", label: "Точное время" },
+    { value: "exact", label: isToday ? "Выбрать время" : "Время" },
   ];
 
   return (
@@ -235,13 +235,13 @@ export function MoodSheet({
       <h3 className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-semibold text-text-2">
         <Clock className="size-4" /> Когда
       </h3>
-      <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
+      <div className="flex gap-2">
         {timeOptions.map((o) => (
           <button
             key={o.value}
             onClick={() => setTimeChoice(o.value)}
             aria-pressed={timeChoice === o.value}
-            className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${timeChoice === o.value ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
+            className={`h-10 shrink-0 whitespace-nowrap rounded-full px-5 text-sm font-semibold transition ${timeChoice === o.value ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
           >
             {o.label}
           </button>
