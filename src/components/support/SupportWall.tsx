@@ -273,8 +273,9 @@ export function SupportWallCard({ userId, ownerName, own }: { userId: string; ow
           )}
         </>
       ) : (
-        w.can_view && (
-          <p className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">{own ? "Пока никто ничего не оставил." : "Пока здесь пусто."}</p>
+        // В чужом окне пустоту не подписываем: поле для сообщения и так видно
+        w.can_view && own && (
+          <p className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">Пока никто ничего не оставил.</p>
         )
       )}
       {!w.can_write && !own && (w.can_view || threads.length > 0) && (
