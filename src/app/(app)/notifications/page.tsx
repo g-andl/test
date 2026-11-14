@@ -1,13 +1,13 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { CheckCheck, Settings, Bell, BellOff } from "lucide-react";
+import { Settings, Bell, BellOff } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { PushBanner } from "@/components/notifications/PushControl";
-import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import { fetchNotifications, fetchNotifSettings, markRead, keys } from "@/lib/api";
 import { moodOf } from "@/lib/mood";
@@ -46,17 +46,23 @@ function notificationText(n: NotificationRow): { text: React.ReactNode; mood?: n
 export default function NotificationsPage() {
   const router = useRouter();
   const { profile: me } = useAuth();
-  const toast = useToast();
   const q = useQuery(keys.notifications, fetchNotifications);
   const settings = useQuery(keys.notifSettings, fetchNotifSettings);
   const items = q.data ?? [];
-  const unread = items.filter((n) => !n.is_read).length;
+  // Открыл страницу — значит, увидел: всё непрочитанное помечается прочитанным.
+  // Новые подсвечиваем до ухода со страницы, чтобы было видно, что пришло.
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const unreadIds = (q.data ?? []).filter((n) => !n.is_read).map((n) => n.id);
+    if (!unreadIds.length) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFresh((prev) => new Set([...prev, ...unreadIds]));
+    markRead("all").then(() => invalidate(keys.unread, keys.notifications)).catch(() => undefined);
+  }, [q.data]);
+  const unread = fresh.size;
   const hiddenInApp = settings.data && !settings.data.inapp_enabled;
 
-  async function open(n: NotificationRow) {
-    if (!n.is_read) {
-      markRead([n.id]).then(() => invalidate(keys.unread, keys.notifications)).catch(() => undefined);
-    }
+  function open(n: NotificationRow) {
     if (n.type === "friend_request") router.push("/friends/");
     else if (n.type === "support_message") router.push("/support/");
     else if (n.type === "support_reply") {
@@ -65,15 +71,6 @@ export default function NotificationsPage() {
       router.push(wall && wall !== me?.username ? `/user/?u=${wall}` : "/support/");
     }
     else if (n.actor) router.push(`/user/?u=${n.actor.username}`);
-  }
-
-  async function readAll() {
-    try {
-      await markRead("all");
-      invalidate(keys.unread, keys.notifications);
-    } catch (e) {
-      toast(humanError(e), "error");
-    }
   }
 
   const today = todayKey();
@@ -85,16 +82,11 @@ export default function NotificationsPage() {
   return (
     <>
       <PageHeader
-        eyebrow={unread ? `${unread} непрочитанных` : "Всё прочитано"}
+        eyebrow={unread ? `Новых: ${unread}` : "Всё прочитано"}
         title="Уведомления"
         bell={false}
         actions={
           <>
-            {unread > 0 && (
-              <button onClick={readAll} aria-label="Отметить все прочитанными" className="flex size-11 items-center justify-center rounded-full bg-surface shadow-card">
-                <CheckCheck className="size-5" />
-              </button>
-            )}
             <Link href="/settings/notifications/" aria-label="Настройки уведомлений" className="flex size-11 items-center justify-center rounded-full bg-surface shadow-card">
               <Settings className="size-5" />
             </Link>
@@ -122,7 +114,7 @@ export default function NotificationsPage() {
                     <li key={n.id}>
                       <button
                         onClick={() => open(n)}
-                        className={`flex w-full items-center gap-3 rounded-[20px] p-3 text-left shadow-card transition active:scale-[0.99] ${n.is_read ? "bg-surface" : "bg-accent-soft"}`}
+                        className={`flex w-full items-center gap-3 rounded-[20px] p-3 text-left shadow-card transition active:scale-[0.99] ${fresh.has(n.id) ? "bg-accent-soft" : "bg-surface"}`}
                       >
                         <span className="relative">
                           <Avatar src={n.actor?.avatar_url} name={n.actor?.display_name ?? "?"} size={48} />
@@ -136,7 +128,7 @@ export default function NotificationsPage() {
                           <span className="block text-[15px] leading-snug">{text}</span>
                           <span className="mt-0.5 block text-xs text-muted">{timeAgo(n.created_at)}</span>
                         </span>
-                        {!n.is_read && <span className="size-2.5 shrink-0 rounded-full bg-accent" aria-label="Не прочитано" />}
+                        {fresh.has(n.id) && <span className="size-2.5 shrink-0 rounded-full bg-accent" aria-label="Не прочитано" />}
                       </button>
                     </li>
                   );
