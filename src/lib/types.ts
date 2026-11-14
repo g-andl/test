@@ -76,12 +76,17 @@ export interface EntryLite {
   note?: string | null;
   photo_path?: string | null;
   updated_at?: string;
+  /** Для чужих отметок: заметка/фото есть, но скрыты автором */
+  has_note?: boolean;
+  has_photo?: boolean;
 }
 
 /** Что видят пользователи, которые НЕ в друзьях. Друзья видят всё. */
 export interface PrivacySettings {
   user_id: string;
   public_visibility: "all" | "latest" | "none";
+  /** Заметки и фото из отметок для не-друзей (друзья видят всегда) */
+  notes_public: boolean;
   photos_public: boolean;
   /** Окно поддержки: кто может писать / кто видит сообщения */
   support_write: "all" | "friends" | "none";
@@ -93,6 +98,10 @@ export interface Badge {
   id: string;
   name: string;
   color: string; // #rrggbb
+  /** Подсказка: за что выдаётся (для автоматических) */
+  hint?: string | null;
+  /** Ключ автоматического статуса; у выданных вручную и своих — null */
+  auto_key?: string | null;
 }
 
 export interface SupportMessage {
@@ -198,6 +207,7 @@ export interface UserProfileView {
   access: "self" | "friend" | "all" | "latest" | "none";
   can_see_history: boolean;
   can_see_photos: boolean;
+  can_see_notes: boolean;
   is_admin: boolean;
   is_muted: boolean;
   entries_count: number | null;

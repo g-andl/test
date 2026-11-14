@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarSearch, SearchX, BookOpen } from "lucide-react";
+import { SearchX, BookOpen } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented, Chip } from "@/components/ui/Segmented";
 import { Card } from "@/components/ui/Card";
@@ -13,7 +13,7 @@ import { DaySheet } from "@/components/diary/DaySheet";
 import { useMoodSheet } from "@/components/mood/MoodSheetProvider";
 import { useMyEntries } from "@/hooks/data";
 import { MOODS } from "@/lib/mood";
-import { fromKey, todayKey } from "@/lib/dates";
+import { fromKey } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import type { MoodValue } from "@/lib/types";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
@@ -47,18 +47,11 @@ export default function DiaryPage() {
     const d = new URLSearchParams(window.location.search).get("day");
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- день берётся из адреса страницы
+      setYm({ y: fromKey(d).getFullYear(), m: fromKey(d).getMonth() });
       setDay(d);
       history.replaceState(null, "", window.location.pathname);
     }
   }, []);
-
-  function jumpTo(key: string) {
-    if (!key) return;
-    if (key > todayKey()) return;
-    const d = fromKey(key);
-    setYm({ y: d.getFullYear(), m: d.getMonth() });
-    setDay(key);
-  }
 
   const filters = (
     <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 min-[380px]:-mx-5 min-[380px]:px-5 lg:mx-0 lg:px-0">
@@ -86,17 +79,6 @@ export default function DiaryPage() {
             { value: "calendar", label: "Календарь" },
           ]}
         />
-        <label className="relative flex h-12 cursor-pointer items-center gap-2 rounded-2xl bg-surface px-4 text-sm font-semibold shadow-card">
-          <CalendarSearch className="size-5 text-accent" />
-          <span className="hidden min-[400px]:inline">К дате</span>
-          <input
-            type="date"
-            max={todayKey()}
-            aria-label="Перейти к дате"
-            onChange={(e) => jumpTo(e.target.value)}
-            className="absolute inset-0 cursor-pointer opacity-0"
-          />
-        </label>
       </div>
       <div className="mb-5">{filters}</div>
 

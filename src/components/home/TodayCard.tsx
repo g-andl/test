@@ -1,15 +1,13 @@
 "use client";
 import Link from "next/link";
-import { ChevronRight, ListOrdered } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { MOODS } from "@/lib/mood";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
-import { EntryCard } from "@/components/diary/EntryCard";
+import { MoodCard, CardRow, CardSlot } from "@/components/mood/MoodCard";
+import { plural } from "@/lib/dates";
 import type { MoodEntry, MoodValue } from "@/lib/types";
 
-/**
- * Главное действие: отметить настроение одним касанием.
- * Отметок за день может быть несколько — утром одно, вечером другое.
- */
+/** Главное действие: отметить настроение одним касанием. Отметок за день может быть несколько. */
 export function TodayCard({ entries, onOpen }: { entries: MoodEntry[]; onOpen: (mood?: MoodValue) => void }) {
   const has = entries.length > 0;
   return (
@@ -33,34 +31,31 @@ export function TodayCard({ entries, onOpen }: { entries: MoodEntry[]; onOpen: (
           </button>
         ))}
       </div>
-
-      {has && (
-        <div className="mt-5 border-t border-line pt-4">
-          <p className="mb-2 text-sm font-bold uppercase tracking-wider text-muted">Последняя отметка</p>
-          {/* entries отсортированы по времени — последняя в конце */}
-          <div className="-mx-1">
-            <EntryCard entry={entries[entries.length - 1]} own compact className="!p-2" />
-          </div>
-          <Link
-            href={`/diary/?day=${entries[0].entry_date}`}
-            className="mt-2 flex h-12 items-center justify-between rounded-2xl bg-surface-2 px-4 text-[15px] font-semibold transition hover:bg-surface-3"
-          >
-            <span className="flex items-center gap-2">
-              <ListOrdered className="size-[18px] text-accent" />
-              Все отметки за сегодня
-            </span>
-            <span className="flex items-center gap-1 text-muted">
-              {entries.length}
-              <ChevronRight className="size-4" />
-            </span>
-          </Link>
-        </div>
-      )}
     </section>
   );
 }
 
-/** Маленький значок среднего настроения за день (для сводок) */
-export function DayAvg({ value }: { value: number }) {
-  return <MoodEmoji value={value} size={20} />;
+/** Отметки за сегодня карточками: первой — последняя, остальные листаются в сторону */
+export function TodayEntries({ entries }: { entries: MoodEntry[] }) {
+  if (!entries.length) return null;
+  const latestFirst = [...entries].reverse();
+  return (
+    <section aria-label="Отметки за сегодня">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-[19px] font-bold tracking-tight">
+          Сегодня <span className="text-base font-medium text-muted">· {entries.length} {plural(entries.length, ["отметка", "отметки", "отметок"])}</span>
+        </h2>
+        <Link href={`/diary/?day=${entries[0].entry_date}`} className="flex h-10 items-center gap-0.5 text-sm font-semibold text-accent">
+          Все отметки <ChevronRight className="size-4" />
+        </Link>
+      </div>
+      <CardRow>
+        {latestFirst.map((e) => (
+          <CardSlot key={e.id} single={latestFirst.length === 1}>
+            <MoodCard entry={e} own showDay={false} />
+          </CardSlot>
+        ))}
+      </CardRow>
+    </section>
+  );
 }

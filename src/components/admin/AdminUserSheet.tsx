@@ -239,10 +239,10 @@ function PrivacySection({ userId, onSaved }: { userId: string; onSaved: () => vo
   const [busy, setBusy] = useState(false);
   const cur = q.data;
 
-  async function save(visibility: string, photos: boolean) {
+  async function save(visibility: string, photos: boolean, notes: boolean) {
     setBusy(true);
     try {
-      await adminUpdatePrivacy(userId, visibility, photos);
+      await adminUpdatePrivacy(userId, visibility, photos, notes);
       toast("Приватность изменена");
       await q.refetch();
       onSaved();
@@ -268,7 +268,7 @@ function PrivacySection({ userId, onSaved }: { userId: string; onSaved: () => vo
                 role="radio"
                 aria-checked={cur.public_visibility === v}
                 disabled={busy}
-                onClick={() => save(v, cur.photos_public)}
+                onClick={() => save(v, cur.photos_public, cur.notes_public)}
                 className={`h-10 rounded-full px-4 text-sm font-semibold transition active:scale-95 ${cur.public_visibility === v ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
               >
                 {label}
@@ -278,9 +278,19 @@ function PrivacySection({ userId, onSaved }: { userId: string; onSaved: () => vo
           <label className="mt-3 flex cursor-pointer items-center gap-3 text-[15px]">
             <input
               type="checkbox"
+              checked={cur.notes_public}
+              disabled={busy || cur.public_visibility === "none"}
+              onChange={(e) => save(cur.public_visibility, cur.photos_public, e.target.checked)}
+              className="size-5 accent-[var(--accent)]"
+            />
+            Показывать заметки не-друзьям
+          </label>
+          <label className="mt-2 flex cursor-pointer items-center gap-3 text-[15px]">
+            <input
+              type="checkbox"
               checked={cur.photos_public}
               disabled={busy || cur.public_visibility === "none"}
-              onChange={(e) => save(cur.public_visibility, e.target.checked)}
+              onChange={(e) => save(cur.public_visibility, e.target.checked, cur.notes_public)}
               className="size-5 accent-[var(--accent)]"
             />
             Показывать фото не-друзьям
@@ -609,32 +619,35 @@ function StatusSection({ user }: { user: AdminUser }) {
 
   return (
     <section className="mt-5">
-      <h3 className="mb-1 font-bold">Статус {current && <BadgePill name={current.name} color={current.color} className="ml-1 align-middle" />}</h3>
-      <p className="mb-2 text-[13px] text-muted">Цветная пометка рядом с именем, её видят все.</p>
+      <h3 className="mb-1 font-bold">Статус {current && <BadgePill name={current.name} color={current.color} hint={current.hint} className="ml-1 align-middle" />}</h3>
+      <p className="mb-2 text-[13px] text-muted">
+        Цветная пометка рядом с именем, её видят все.{" "}
+        {current ? (badges.data?.manual[user.id] ? "Выдан вручную: система его не меняет." : "Выдан системой по активности.") : "Пока ничего не подошло по активности."}
+      </p>
       {badges.loading ? (
         <div className="flex justify-center py-3"><Spinner /></div>
       ) : (
         <div role="radiogroup" aria-label="Статус пользователя" className="flex flex-wrap items-center gap-2">
           <button
             role="radio"
-            aria-checked={!current}
+            aria-checked={!badges.data?.manual[user.id]}
             disabled={busy !== null}
-            onClick={() => assign("none", () => adminSetUserBadge(user.id, null), "Статус снят")}
-            className={`h-9 rounded-full px-3 text-sm font-semibold transition active:scale-95 ${!current ? "bg-ink text-ink-fg" : "bg-surface-2 text-text-2"}`}
+            onClick={() => assign("none", () => adminSetUserBadge(user.id, null), "Статус снова выдаёт система")}
+            className={`h-9 rounded-full px-3 text-sm font-semibold transition active:scale-95 ${!badges.data?.manual[user.id] ? "bg-ink text-ink-fg" : "bg-surface-2 text-text-2"}`}
           >
-            Без статуса
+            Авто (по активности)
           </button>
           {badges.data?.list.map((b) => (
             <button
               key={b.id}
               role="radio"
-              aria-checked={current?.id === b.id}
+              aria-checked={current?.id === b.id && !!badges.data?.manual[user.id]}
               aria-label={b.name}
               disabled={busy !== null}
               onClick={() => assign(b.id, () => adminSetUserBadge(user.id, b.id), `Статус «${b.name}» выдан`)}
-              className={`rounded-full p-0.5 transition active:scale-95 ${current?.id === b.id ? "ring-2 ring-text" : "ring-1 ring-transparent"}`}
+              className={`rounded-full p-0.5 transition active:scale-95 ${current?.id === b.id && badges.data?.manual[user.id] ? "ring-2 ring-text" : "ring-1 ring-transparent"}`}
             >
-              <BadgePill name={b.name} color={b.color} className="!px-3 !py-1.5 !text-[13px]" />
+              <BadgePill name={b.name} color={b.color} hint={b.hint} className="!px-3 !py-1.5 !text-[13px]" />
             </button>
           ))}
           <button

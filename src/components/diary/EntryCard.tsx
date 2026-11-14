@@ -1,7 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Lock } from "lucide-react";
+import { PhotoViewer } from "@/components/mood/PhotoViewer";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useMoodSheet } from "@/components/mood/MoodSheetProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -89,6 +90,10 @@ export function EntryCard({
 }) {
   const m = moodOf(entry.mood_value);
   const photo = usePhoto(entry.photo_path);
+  const [open, setOpen] = useState(false);
+  const flags = entry as EntryLite;
+  const hiddenPhoto = !entry.photo_path && !!flags.has_photo;
+  const hiddenNote = !entry.note && !!flags.has_note;
   return (
     <div className={`w-full rounded-[20px] p-4 text-left ${className}`} style={{ background: highlight ? m.soft : "var(--surface)" }}>
       <div className="flex items-center gap-3">
@@ -103,15 +108,24 @@ export function EntryCard({
         </div>
         {own && "user_id" in entry && <EntryActions entry={entry as MoodEntry} />}
       </div>
-      {entry.note && <p className="mt-3 line-clamp-6 whitespace-pre-line text-[15px] leading-relaxed text-text-2">{entry.note}</p>}
+      {entry.note && <p className="mt-3 line-clamp-6 whitespace-pre-line break-words text-[15px] leading-relaxed text-text-2">{entry.note}</p>}
+      {hiddenNote && <p className="mt-3 flex items-center gap-1.5 text-sm text-muted"><Lock className="size-4" /> Заметка скрыта</p>}
       {photo.data && (
-        <img
-          src={photo.data}
-          alt="Фото к отметке"
-          loading="lazy"
-          className={`mt-3 w-full rounded-2xl object-cover ${compact ? "h-32 max-w-xs" : "max-h-72"}`}
-        />
+        <button onClick={() => setOpen(true)} aria-label="Открыть фото" className="mt-3 block w-full text-left">
+          <img
+            src={photo.data}
+            alt="Фото к отметке"
+            loading="lazy"
+            className={`w-full rounded-2xl object-cover ${compact ? "h-32 max-w-xs" : "max-h-72"}`}
+          />
+        </button>
       )}
+      {hiddenPhoto && (
+        <div className="mt-3 flex h-24 items-center justify-center gap-2 rounded-2xl bg-surface-2 text-sm font-semibold text-muted">
+          <Lock className="size-5" /> Фото скрыто
+        </div>
+      )}
+      <PhotoViewer src={open ? photo.data ?? null : null} onClose={() => setOpen(false)} />
     </div>
   );
 }

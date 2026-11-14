@@ -15,7 +15,7 @@ import { AdminUserSheet, fmtDateTime } from "@/components/admin/AdminUserSheet";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
-import { adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery, adminSaveBadge, adminDeleteBadge } from "@/lib/api";
+import { adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery, adminSaveBadge, adminDeleteBadge, adminRefreshBadges } from "@/lib/api";
 import { humanError } from "@/lib/errors";
 import { plural } from "@/lib/dates";
 import type { AdminUser, RecoveryRequest } from "@/lib/types";
@@ -177,7 +177,7 @@ function BadgesTab() {
     setBusy(key);
     try {
       await fn();
-      toast(ok);
+      if (ok) toast(ok);
       invalidate("badges");
     } catch (e) {
       toast(humanError(e), "error");
@@ -195,9 +195,22 @@ function BadgesTab() {
         <BadgeForm key={list.length} submitLabel="Создать" busy={busy === "new"} onSubmit={(name, color) => run("new", () => adminSaveBadge(null, name, color), "Статус создан")} />
       </section>
       <section className="md:col-span-2">
-        <h2 className="mb-2 text-[17px] font-bold">Все статусы {list.length ? `(${list.length})` : ""}</h2>
-        <p className="mb-3 flex items-center gap-2 text-[13px] text-muted">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-[17px] font-bold">Все статусы {list.length ? `(${list.length})` : ""}</h2>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={busy === "refresh"}
+            onClick={() => run("refresh", async () => { const n = await adminRefreshBadges(); toast(`Статусы пересчитаны у ${n} пользователей`); }, "")}
+          >
+            <RefreshCw className="size-4" /> Пересчитать у всех
+          </Button>
+        </div>
+        <p className="mb-1 flex items-center gap-2 text-[13px] text-muted">
           У администратора встроенная пометка <BadgePill name="Администратор" color="#4d8df7" />
+        </p>
+        <p className="mb-3 text-[13px] text-muted">
+          Статусы с пометкой «Авто» система выдаёт сама за активность при заходе пользователя и раз в сутки. Вручную выданный статус не меняется. У автоматических можно менять название и цвет, удалять их нельзя.
         </p>
         {badges.loading ? (
           <Skeleton className="h-32" />
@@ -207,6 +220,12 @@ function BadgesTab() {
           <ul className="grid gap-3 md:grid-cols-2">
             {list.map((b) => (
               <li key={b.id + b.name + b.color} className="rounded-[22px] bg-surface p-4 shadow-card">
+                {b.auto_key && (
+                  <p className="mb-2 flex items-start gap-2 text-[13px] text-text-2">
+                    <span className="mt-0.5 shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">Авто</span>
+                    {b.hint}
+                  </p>
+                )}
                 <BadgeForm
                   initialName={b.name}
                   initialColor={b.color}
@@ -214,7 +233,7 @@ function BadgesTab() {
                   busy={busy === b.id}
                   holders={badges.data?.counts[b.id]}
                   onSubmit={(name, color) => run(b.id, () => adminSaveBadge(b.id, name, color), "Статус изменён")}
-                  onDelete={() => run(b.id, () => adminDeleteBadge(b.id), "Статус удалён")}
+                  onDelete={b.auto_key ? undefined : () => run(b.id, () => adminDeleteBadge(b.id), "Статус удалён")}
                 />
               </li>
             ))}
