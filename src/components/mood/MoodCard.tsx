@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Lock, Maximize2 } from "lucide-react";
 import { MoodEmoji } from "./MoodEmoji";
 import { PhotoViewer } from "./PhotoViewer";
+import { ExpandableText } from "@/components/ui/ExpandableText";
 import { EntryActions } from "@/components/diary/EntryCard";
 import { moodOf, dayPartOf } from "@/lib/mood";
 import { formatRelativeDay, formatTime } from "@/lib/dates";
@@ -59,7 +60,7 @@ export function MoodCard({ entry, own, showDay = true, className = "" }: { entry
           {when} · {dayPartOf(entry.day_part).label.toLowerCase()}
         </p>
         {entry.note ? (
-          <p className="line-clamp-4 whitespace-pre-line break-words text-[15px] leading-snug text-text-2">{entry.note}</p>
+          <ExpandableText text={entry.note} lines={4} className="text-[15px] leading-snug text-text-2" />
         ) : hiddenNote ? (
           <p className="flex items-center gap-1.5 text-sm text-muted"><Lock className="size-4" /> Заметка скрыта</p>
         ) : (
