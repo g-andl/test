@@ -215,7 +215,7 @@ try {
 
   // Статистика и настройки
   await page.getByRole("link", { name: "Главная" }).click();
-  await page.getByRole("link", { name: "Полная статистика" }).click();
+  await page.goto(`${BASE}/stats/`);
   await page.getByText("Распределение").waitFor();
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${SHOTS}/14-stats-390.png`, fullPage: true });
