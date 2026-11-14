@@ -218,7 +218,7 @@ function ThreadView({ thread, userId, onChanged }: { thread: Thread; userId: str
 export function SupportWallCard({ userId, ownerName, own }: { userId: string; ownerName: string; own?: boolean }) {
   const toast = useToast();
   const wall = useQuery(keys.support(userId), () => fetchSupportWall(userId));
-  const [shown, setShown] = useState(10);
+  const [shown, setShown] = useState(3);
   const w = wall.data;
   const threads = useMemo(() => buildThreads(w?.messages ?? []), [w]);
   const refresh = () => invalidate(keys.support(userId));
@@ -267,8 +267,8 @@ export function SupportWallCard({ userId, ownerName, own }: { userId: string; ow
             ))}
           </ul>
           {threads.length > shown && (
-            <Button variant="secondary" block className="mt-3" onClick={() => setShown((n) => n + 10)}>
-              Показать ещё ({threads.length - shown})
+            <Button variant="secondary" block className="mt-3" onClick={() => setShown(Infinity)}>
+              Смотреть все сообщения ({w.total > threads.length ? w.total : threads.length})
             </Button>
           )}
         </>
