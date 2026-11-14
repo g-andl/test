@@ -1,5 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
+import { ExpandableText } from "@/components/ui/ExpandableText";
 import { useEffect, useState } from "react";
 import { Pencil, Trash2, Lock } from "lucide-react";
 import { PhotoViewer } from "@/components/mood/PhotoViewer";
@@ -108,7 +109,7 @@ export function EntryCard({
         </div>
         {own && "user_id" in entry && <EntryActions entry={entry as MoodEntry} />}
       </div>
-      {entry.note && <p className="mt-3 line-clamp-6 whitespace-pre-line break-words text-[15px] leading-relaxed text-text-2">{entry.note}</p>}
+      {entry.note && <div className="mt-3"><ExpandableText text={entry.note} lines={6} className="text-[15px] leading-relaxed text-text-2" /></div>}
       {hiddenNote && <p className="mt-3 flex items-center gap-1.5 text-sm text-muted"><Lock className="size-4" /> Заметка скрыта</p>}
       {photo.data && (
         <button onClick={() => setOpen(true)} aria-label="Открыть фото" className="mt-3 block w-full text-left">

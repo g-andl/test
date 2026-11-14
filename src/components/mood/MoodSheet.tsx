@@ -17,6 +17,7 @@ import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 type TimeChoice = "now" | DayPart | "exact";
 
+const NOTE_MAX = 2000;
 const draftKey = (date: string) => `nastroy-draft-${date}`;
 
 export function MoodSheet({
@@ -46,6 +47,7 @@ export function MoodSheet({
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
   const existingPhoto = usePhoto(existing && !removePhoto ? existing.photo_path : null);
 
   // Заполняем форму при открытии
@@ -83,6 +85,14 @@ export function MoodSheet({
       else localStorage.removeItem(draftKey(date));
     } catch {}
   }, [note, open, existing, date]);
+
+  // Поле заметки растёт вместе с текстом (до 40% высоты экрана, дальше — прокрутка внутри)
+  useEffect(() => {
+    const el = noteRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [note, open]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -266,12 +276,16 @@ export function MoodSheet({
       </label>
       <textarea
         id="mood-note"
+        ref={noteRef}
         value={note}
-        onChange={(e) => setNote(e.target.value.slice(0, 2000))}
+        onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
         placeholder="Что повлияло на настроение?"
         rows={3}
-        className="w-full resize-none rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
+        className="max-h-[40vh] w-full resize-none overflow-y-auto rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
       />
+      <p className={`mt-1 text-right text-xs ${note.length >= NOTE_MAX - 100 ? "font-semibold text-danger" : "text-muted"}`}>
+        {note.length} / {NOTE_MAX}
+      </p>
 
       {/* Фото */}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
