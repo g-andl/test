@@ -45,7 +45,8 @@ try {
   // 1. Пользователь забыл пароль — оставляет заявку
   await page.goto(`${BASE}/login/`);
   await page.getByRole("link", { name: "Не получается войти?" }).click();
-  await page.getByLabel("Имя пользователя").fill(`lost_${run}`);
+  await page.getByText("Не помнишь ни имени, ни почты?").waitFor();
+  await page.getByLabel("Имя пользователя или почта").fill(`lost_${run}`);
   await page.getByLabel("Telegram или VK для связи").fill(`@tg_${run}`);
   await page.getByLabel("Что случилось").fill("Забыл пароль, сменил телефон");
   await page.screenshot({ path: `${SHOTS}/a1-recovery-form.png` });
@@ -55,7 +56,7 @@ try {
 
   // 2. Админ входит по имени пользователя и попадает в панель
   await page.goto(`${BASE}/login/`);
-  await page.getByLabel("Имя пользователя").fill(`boss_${run}`);
+  await page.getByLabel("Имя пользователя или почта").fill(`boss_${run}`);
   await page.getByLabel("Пароль", { exact: true }).fill("Passw0rd!x");
   await page.getByRole("button", { name: "Войти" }).click();
   await page.waitForURL(/\/admin\//, { timeout: 15000 });
@@ -64,6 +65,7 @@ try {
 
   // 3. Заявки
   await page.getByRole("tab", { name: /Заявки/ }).click();
+  await page.getByRole("tab", { name: /Новые/ }).waitFor();
   await page.getByText(`@tg_${run}`).waitFor();
   await page.screenshot({ path: `${SHOTS}/a2-admin-recovery.png`, fullPage: true });
   const card = page.getByRole("listitem").filter({ hasText: `@tg_${run}` }).filter({ hasText: "Забыл пароль" });
@@ -74,6 +76,15 @@ try {
   assert.equal(await sheet.getByLabel("Заметка").first().inputValue(), "заметка пользователя");
   await page.screenshot({ path: `${SHOTS}/a3-admin-user.png` });
   log("карточка пользователя: дата создания и отметки видны");
+
+  await sheet.getByText("Почта для восстановления").first().waitFor();
+  await sheet.getByRole("heading", { name: /Активность/ }).waitFor();
+  await sheet.getByRole("heading", { name: "Приватность" }).waitFor();
+  await sheet.getByRole("radio", { name: "Закрытый профиль" }).click();
+  await page.getByText("Приватность изменена").waitFor();
+  const { data: pv } = await admin.from("privacy_settings").select("public_visibility").eq("user_id", userId).single();
+  assert.equal(pv.public_visibility, "none");
+  log("активность, почта и приватность в карточке; приватность изменена админом");
 
   // 3б. Отметка за пользователя
   await sheet.getByRole("button", { name: "Добавить отметку" }).click();
@@ -94,6 +105,13 @@ try {
   await page.getByRole("tab", { name: /Заявки/ }).click();
   await card.getByRole("button", { name: "Решено" }).click();
   await page.getByText("Заявка закрыта").waitFor();
+  await page.getByRole("tab", { name: /Решённые · 1/ }).click();
+  await page.getByText(`@tg_${run}`).waitFor();
+  log("заявка перешла в раздел «Решённые»");
+  await card.getByRole("button", { name: "Удалить заявку" }).click();
+  await card.getByRole("button", { name: "Точно удалить?" }).click();
+  await page.getByText("Заявка удалена").waitFor();
+  log("заявка удалена в два касания");
   log("пароль задан, заявка закрыта");
 
   // 4б. Удаление аккаунта в два касания
@@ -118,10 +136,54 @@ try {
   await page.screenshot({ path: `${SHOTS}/a5-admin-settings.png` });
   log("смена своего пароля в «Настройках»");
 
+  // 4г. Блокировка: админ блокирует на 7 дней → пользователь входит и видит экран блокировки → разблокировка
+  await page.getByRole("tab", { name: /Пользователи/ }).click();
+  await page.getByLabel("Поиск пользователей").fill(`lost_${run}`);
+  await page.getByText("Потеряшка").click();
+  const sheet2 = page.getByRole("dialog");
+  await sheet2.getByRole("heading", { name: "Блокировка" }).waitFor();
+  await sheet2.getByRole("radio", { name: "7 дней" }).click();
+  await sheet2.getByLabel("Причина блокировки").fill("Нарушение правил");
+  await sheet2.getByRole("button", { name: "Заблокировать" }).click();
+  await sheet2.getByRole("button", { name: "Точно заблокировать?" }).click();
+  await page.getByText("Аккаунт заблокирован").first().waitFor();
+  await page.screenshot({ path: `${SHOTS}/a6-admin-block.png` });
+  const { data: blk } = await admin.from("user_blocks").select("blocked_until, reason").eq("user_id", userId).single();
+  assert.equal(blk.reason, "Нарушение правил");
+  assert.ok(new Date(blk.blocked_until).getTime() > Date.now() + 6 * 86400000, "блокировка на 7 дней");
+  await page.getByRole("button", { name: "Закрыть" }).click();
+  await page.getByText("Заблокирован", { exact: true }).first().waitFor();
+  log("админ заблокировал аккаунт на 7 дней, значок в списке");
+
+  const cb = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ru-RU", isMobile: true });
+  const pb = await cb.newPage();
+  await pb.goto(`${BASE}/login/`);
+  await pb.getByLabel("Имя пользователя или почта").fill(`lost_${run}`);
+  await pb.getByLabel("Пароль", { exact: true }).fill("Temp2026pass");
+  await pb.getByRole("button", { name: "Войти" }).click();
+  await pb.getByRole("heading", { name: "Аккаунт заблокирован" }).waitFor({ timeout: 15000 });
+  await pb.getByText("Нарушение правил").waitFor();
+  await pb.getByText(/Доступ ограничен до/).waitFor();
+  assert.equal(await pb.getByRole("button", { name: "Хорошо" }).count(), 0, "приложения за экраном блокировки нет");
+  await pb.screenshot({ path: `${SHOTS}/a7-blocked-screen.png` });
+  log("заблокированный вошёл и видит экран блокировки со сроком и причиной");
+
+  // Разблокировка: экран исчезает сам (проверка раз в 30 секунд — ускоряем перезагрузкой)
+  await sheet2.waitFor({ state: "detached" }).catch(() => undefined);
+  await page.getByText("Потеряшка").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Разблокировать" }).click();
+  await page.getByText("Аккаунт разблокирован").waitFor();
+  await page.getByRole("button", { name: "Закрыть" }).click();
+  await pb.reload();
+  await pb.waitForURL(`${BASE}/`, { timeout: 15000 });
+  await pb.getByRole("heading", { name: /Как ты сегодня|Как ты сейчас/ }).waitFor();
+  log("после разблокировки приложение снова доступно");
+  await cb.close();
+
   // 5. Пользователь входит с новым паролем и видит админа с пометкой
   await page.getByRole("button", { name: "Выйти" }).click();
   await page.waitForURL(/\/login\//);
-  await page.getByLabel("Имя пользователя").fill(`lost_${run}`);
+  await page.getByLabel("Имя пользователя или почта").fill(`lost_${run}`);
   await page.getByLabel("Пароль", { exact: true }).fill("Temp2026pass");
   await page.getByRole("button", { name: "Войти" }).click();
   await page.waitForURL(`${BASE}/`, { timeout: 15000 });
@@ -142,16 +204,31 @@ try {
   const c2 = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ru-RU" });
   const p2 = await c2.newPage();
   await p2.goto(`${BASE}/register/`);
-  assert.equal(await p2.getByLabel("Почта").count(), 0, "поля почты нет");
   await p2.getByLabel("Имя", { exact: true }).fill("Новичок");
+  // Имя admin занять нельзя
+  await p2.getByLabel("Имя пользователя").fill(`admin`);
+  await p2.getByText("Это имя уже занято").waitFor();
   await p2.getByLabel("Имя пользователя").fill(`new_${run}`);
   await p2.getByText("✓ Имя свободно").waitFor();
+  await p2.getByLabel("Почта", { exact: true }).fill(`new_${run}@mail.test`);
   await p2.getByLabel("Пароль", { exact: true }).fill("Passw0rd!x");
   await p2.getByLabel("Принимаю все условия").check();
   await p2.getByRole("button", { name: "Зарегистрироваться" }).click();
   await p2.waitForURL(/\/onboarding\//, { timeout: 15000 });
-  log("регистрация без почты работает");
+  log("регистрация с почтой (без кодов) работает, имя admin занято");
+  // Вход по почте
+  await p2.goto(`${BASE}/settings/account/`);
+  await p2.getByRole("button", { name: "Выйти" }).count();
   await c2.close();
+  const c3 = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ru-RU" });
+  const p3 = await c3.newPage();
+  await p3.goto(`${BASE}/login/`);
+  await p3.getByLabel("Имя пользователя или почта").fill(`new_${run}@mail.test`);
+  await p3.getByLabel("Пароль", { exact: true }).fill("Passw0rd!x");
+  await p3.getByRole("button", { name: "Войти" }).click();
+  await p3.waitForURL(/\/(onboarding)?\/?$/, { timeout: 15000 });
+  log("вход по почте работает");
+  await c3.close();
 } finally {
   await browser.close();
 }

@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { KeyRound, Trash2, Save, Wand2, Plus } from "lucide-react";
+import { KeyRound, Trash2, Save, Wand2, Plus, Mail, Shield, Clock, Ban } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -11,7 +11,7 @@ import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, LOGIN_DOMAIN,
+  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser,
 } from "@/lib/api";
 import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
 import { formatRelativeDay, formatTime, todayKey, combineDateTime } from "@/lib/dates";
@@ -181,6 +181,283 @@ function NewEntryForm({ userId, onCreated }: { userId: string; onCreated: () => 
   );
 }
 
+
+/** Почта для восстановления */
+function ContactEmailSection({ user, onSaved }: { user: AdminUser; onSaved: () => void }) {
+  const toast = useToast();
+  const [email, setEmail] = useState(user.contact_email ?? "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- подставляем почту выбранного пользователя
+    setEmail(user.contact_email ?? "");
+  }, [user.id, user.contact_email]);
+  const valid = email.trim() === "" || EMAIL_RE.test(email.trim());
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 flex items-center gap-2 font-bold"><Mail className="size-4 text-muted" /> Почта для восстановления</h3>
+      <p className="mb-2 text-[13px] text-muted">Пользователь указал её при регистрации. Писем на неё сервис не отправляет.</p>
+      <div className="flex gap-2">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="не указана"
+          aria-label="Почта для восстановления"
+          autoCapitalize="none"
+          className="h-11 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+        />
+        <Button
+          size="sm"
+          disabled={!valid || email.trim().toLowerCase() === (user.contact_email ?? "")}
+          loading={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await adminSetContactEmail(user.id, email);
+              toast("Почта сохранена");
+              onSaved();
+            } catch (e) {
+              toast(humanError(e), "error");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Save className="size-4" /> Сохранить
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** Приватность пользователя: что видят не-друзья */
+function PrivacySection({ userId, onSaved }: { userId: string; onSaved: () => void }) {
+  const toast = useToast();
+  const q = useQuery(`admin-privacy:${userId}`, () => adminUserPrivacy(userId));
+  const [busy, setBusy] = useState(false);
+  const cur = q.data;
+
+  async function save(visibility: string, photos: boolean) {
+    setBusy(true);
+    try {
+      await adminUpdatePrivacy(userId, visibility, photos);
+      toast("Приватность изменена");
+      await q.refetch();
+      onSaved();
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 flex items-center gap-2 font-bold"><Shield className="size-4 text-muted" /> Приватность</h3>
+      <p className="mb-2 text-[13px] text-muted">Что видят пользователи, не состоящие в друзьях. Друзья видят всё.</p>
+      {!cur ? (
+        <div className="flex justify-center py-3"><Spinner /></div>
+      ) : (
+        <>
+          <div role="radiogroup" aria-label="Что видят не-друзья" className="flex flex-wrap gap-2">
+            {([["all", "Видят всё"], ["latest", "Только последнее"], ["none", "Закрытый профиль"]] as const).map(([v, label]) => (
+              <button
+                key={v}
+                role="radio"
+                aria-checked={cur.public_visibility === v}
+                disabled={busy}
+                onClick={() => save(v, cur.photos_public)}
+                className={`h-10 rounded-full px-4 text-sm font-semibold transition active:scale-95 ${cur.public_visibility === v ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="mt-3 flex cursor-pointer items-center gap-3 text-[15px]">
+            <input
+              type="checkbox"
+              checked={cur.photos_public}
+              disabled={busy || cur.public_visibility === "none"}
+              onChange={(e) => save(cur.public_visibility, e.target.checked)}
+              className="size-5 accent-[var(--accent)]"
+            />
+            Показывать фото не-друзьям
+          </label>
+        </>
+      )}
+    </section>
+  );
+}
+
+const shortDuration = (a: string, b: string) => {
+  const min = Math.max(1, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000));
+  return min < 60 ? `${min} мин` : `${Math.floor(min / 60)} ч ${min % 60} мин`;
+};
+
+/** Активность: когда пользователь заходил в приложение; поиск по датам */
+function ActivitySection({ userId }: { userId: string }) {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  // Границы по часовому поясу администратора
+  const fromIso = from ? new Date(`${from}T00:00:00`).toISOString() : undefined;
+  const toIso = to ? new Date(new Date(`${to}T00:00:00`).getTime() + 86400000).toISOString() : undefined;
+  const q = useQuery(`admin-activity:${userId}:${from}:${to}`, () => adminUserActivity(userId, fromIso, toIso));
+  const sessions = q.data ?? [];
+  const shown = sessions.slice(0, 50);
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 flex items-center gap-2 font-bold"><Clock className="size-4 text-muted" /> Активность {q.data ? `(${sessions.length})` : ""}</h3>
+      <p className="mb-2 text-[13px] text-muted">Когда пользователь открывал приложение. Перерыв больше 30 минут — новый заход.</p>
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+        <label className="flex items-center gap-1.5 text-muted">
+          с
+          <input type="date" value={from} max={to || todayKey()} onChange={(e) => setFrom(e.target.value)} aria-label="Активность с даты" className="h-10 rounded-xl bg-surface-2 px-2 text-[15px] text-text outline-none focus:ring-2 focus:ring-accent" />
+        </label>
+        <label className="flex items-center gap-1.5 text-muted">
+          по
+          <input type="date" value={to} min={from || undefined} max={todayKey()} onChange={(e) => setTo(e.target.value)} aria-label="Активность по дату" className="h-10 rounded-xl bg-surface-2 px-2 text-[15px] text-text outline-none focus:ring-2 focus:ring-accent" />
+        </label>
+        {(from || to) && (
+          <button onClick={() => { setFrom(""); setTo(""); }} className="h-10 px-2 text-sm font-semibold text-accent">Сбросить</button>
+        )}
+      </div>
+      {q.loading ? (
+        <div className="flex justify-center py-3"><Spinner /></div>
+      ) : !shown.length ? (
+        <p className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">{from || to ? "За выбранные даты заходов нет" : "Заходов пока нет"}</p>
+      ) : (
+        <ul className="divide-y divide-line rounded-2xl bg-surface-2 px-4">
+          {shown.map((x) => (
+            <li key={x.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+              <span className="font-semibold">{fmtDateTime(x.started_at)}</span>
+              <span className="text-muted">{shortDuration(x.started_at, x.last_seen_at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {sessions.length > 50 && <p className="mt-1 text-xs text-muted">Показаны последние 50 заходов — сузь даты поиска.</p>}
+    </section>
+  );
+}
+
+
+const BLOCK_PRESETS = [
+  { id: "1d", label: "1 день", days: 1 },
+  { id: "7d", label: "7 дней", days: 7 },
+  { id: "30d", label: "30 дней", days: 30 },
+  { id: "date", label: "До даты", days: 0 },
+  { id: "forever", label: "Навсегда", days: -1 },
+] as const;
+
+/** Блокировка: на срок или навсегда. Заблокированный входит, но видит только экран блокировки. */
+function BlockSection({ user, onChanged }: { user: AdminUser; onChanged: () => void }) {
+  const toast = useToast();
+  const [preset, setPreset] = useState<(typeof BLOCK_PRESETS)[number]["id"]>("7d");
+  const [date, setDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!confirm) return;
+    const t = setTimeout(() => setConfirm(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirm]);
+
+  // Конец блокировки считаем в момент нажатия: через N дней или в конце выбранной даты (включительно)
+  function computeUntil(): string | null {
+    const p = BLOCK_PRESETS.find((x) => x.id === preset)!;
+    if (p.days === -1) return null;
+    if (p.days > 0) return new Date(Date.now() + p.days * 86400000).toISOString();
+    return new Date(new Date(`${date}T00:00:00`).getTime() + 86400000).toISOString();
+  }
+  const ready = preset !== "date" || date !== "";
+
+  async function run(fn: () => Promise<void>, ok: string) {
+    setBusy(true);
+    try {
+      await fn();
+      toast(ok);
+      setConfirm(false);
+      onChanged();
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (user.is_blocked) {
+    return (
+      <section className="mt-5 rounded-2xl border border-danger/40 bg-danger-soft/40 p-4">
+        <h3 className="mb-1 flex items-center gap-2 font-bold text-danger"><Ban className="size-4" /> Аккаунт заблокирован</h3>
+        <p className="text-sm">
+          {user.blocked_until ? <>До <b>{fmtDateTime(user.blocked_until)}</b></> : <b>Навсегда</b>}
+          {user.block_reason ? <> · причина: {user.block_reason}</> : null}
+        </p>
+        <p className="mt-1 text-[13px] text-muted">Пользователь может войти, но видит только экран блокировки.</p>
+        <Button size="sm" className="mt-3" loading={busy} onClick={() => run(() => adminUnblockUser(user.id), "Аккаунт разблокирован")}>
+          Разблокировать
+        </Button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 flex items-center gap-2 font-bold"><Ban className="size-4 text-muted" /> Блокировка</h3>
+      <p className="mb-2 text-[13px] text-muted">Пользователь сможет войти, но сразу увидит, что аккаунт заблокирован.</p>
+      <div role="radiogroup" aria-label="Срок блокировки" className="flex flex-wrap gap-2">
+        {BLOCK_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            role="radio"
+            aria-checked={preset === p.id}
+            onClick={() => { setPreset(p.id); setConfirm(false); }}
+            className={`h-10 rounded-full px-4 text-sm font-semibold transition active:scale-95 ${preset === p.id ? "bg-ink text-ink-fg" : "bg-surface-2 text-text-2"}`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {preset === "date" && (
+        <label className="mt-2 flex items-center gap-2 text-sm text-muted">
+          включительно по
+          <input
+            type="date"
+            value={date}
+            min={todayKey()}
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Блокировать по дату"
+            className="h-10 rounded-xl bg-surface-2 px-2 text-[15px] text-text outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
+      )}
+      <input
+        value={reason}
+        onChange={(e) => setReason(e.target.value.slice(0, 500))}
+        placeholder="Причина (её увидит пользователь)"
+        aria-label="Причина блокировки"
+        className="mt-2 h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+      />
+      <div className="mt-2 flex gap-2">
+        {confirm ? (
+          <>
+            <Button size="sm" variant="secondary" onClick={() => setConfirm(false)} disabled={busy}>Отмена</Button>
+            <Button size="sm" variant="danger" loading={busy} onClick={() => run(() => adminBlockUser(user.id, computeUntil(), reason), "Аккаунт заблокирован")}>
+              <Ban className="size-4" /> Точно заблокировать?
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" variant="danger" disabled={!ready} onClick={() => setConfirm(true)}>
+            <Ban className="size-4" /> Заблокировать
+          </Button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /** Всё о пользователе: данные, смена пароля, редактирование, отметки, удаление */
 export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
   const toast = useToast();
@@ -201,7 +478,6 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
   }, [user]);
 
   if (!user) return <Sheet open={false} onClose={onClose}>{null}</Sheet>;
-  const realEmail = !user.email.endsWith(`@${LOGIN_DOMAIN}`);
 
   async function run(key: string, fn: () => Promise<void>, ok: string, after?: () => void) {
     setBusy(key);
@@ -220,7 +496,8 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
   const info: [string, React.ReactNode][] = [
     ["Аккаунт создан", fmtDateTime(user.created_at)],
     ["Последний вход", fmtDateTime(user.last_sign_in_at)],
-    ["Вход", realEmail ? `по почте ${user.email} или имени` : "по имени пользователя"],
+    ["Вход", "по имени пользователя или почте"],
+    ["Почта для восстановления", user.contact_email ?? "не указана"],
     ["Отметок", user.entries_count],
     ["Друзей", user.friends_count],
     ["Для не-друзей", VIS[user.public_visibility ?? ""] ?? "—"],
@@ -263,6 +540,11 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
           <Save className="size-4" /> Сохранить профиль
         </Button>
       </section>
+
+      {!user.is_admin && <BlockSection key={user.id + String(user.is_blocked)} user={user} onChanged={() => invalidate("admin-users")} />}
+      <ContactEmailSection user={user} onSaved={() => invalidate("admin-users")} />
+      <PrivacySection userId={user.id} onSaved={() => invalidate("admin-users")} />
+      <ActivitySection userId={user.id} />
 
       <section className="mt-5">
         <h3 className="mb-1 font-bold">Новый пароль</h3>

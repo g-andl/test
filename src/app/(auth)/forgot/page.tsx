@@ -6,6 +6,7 @@ import { Field, TextArea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { humanError } from "@/lib/errors";
 import { submitRecoveryRequest } from "@/lib/api";
+import { OPERATOR } from "@/lib/legal";
 
 /** Восстановление доступа: заявка администратору, он свяжется и поможет */
 export default function ForgotPage() {
@@ -58,14 +59,20 @@ export default function ForgotPage() {
       </p>
       <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4" noValidate>
         <Field
-          label="Имя пользователя"
+          label="Имя пользователя или почта"
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
           value={username}
-          maxLength={40}
+          maxLength={254}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="masha_k"
+          placeholder="masha_k или you@example.com"
+          hint={
+            <>
+              Не помнишь ни имени, ни почты? Напиши в поддержку:{" "}
+              <a href={`mailto:${OPERATOR.email}`} className="font-semibold text-accent">{OPERATOR.email}</a>
+            </>
+          }
         />
         <Field
           label="Telegram или VK для связи"

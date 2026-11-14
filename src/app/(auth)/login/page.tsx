@@ -39,15 +39,14 @@ export default function LoginPage() {
       <p className="mt-1 text-text-2">Войди, чтобы отметить настроение</p>
       <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4" noValidate>
         <Field
-          label="Имя пользователя"
+          label="Имя пользователя или почта"
           autoComplete="username"
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
           value={login}
           onChange={(e) => setLogin(e.target.value)}
-          placeholder="masha_k"
-          hint="Если регистрировался по почте — можно ввести почту"
+          placeholder="masha_k или почта"
         />
         <Field label="Пароль" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         {error && (

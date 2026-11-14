@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound, RefreshCw } from "lucide-react";
+import { Search, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
 import { Field } from "@/components/ui/Field";
@@ -13,7 +13,7 @@ import { AdminUserSheet, fmtDateTime } from "@/components/admin/AdminUserSheet";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
-import { adminListUsers, adminListRecovery, adminUpdateRecovery } from "@/lib/api";
+import { adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery } from "@/lib/api";
 import { humanError } from "@/lib/errors";
 import { plural } from "@/lib/dates";
 import type { AdminUser, RecoveryRequest } from "@/lib/types";
@@ -37,7 +37,27 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
   const toast = useToast();
   const [note, setNote] = useState(r.admin_note ?? "");
   const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const href = contactHref(r.contact);
+
+  // Подтверждение удаления само сбрасывается через 3 секунды
+  useEffect(() => {
+    if (!confirmDel) return;
+    const t = setTimeout(() => setConfirmDel(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmDel]);
+
+  async function remove() {
+    setBusy(true);
+    try {
+      await adminDeleteRecovery(r.id);
+      invalidate("admin-recovery");
+      toast("Заявка удалена");
+    } catch (e) {
+      toast(humanError(e), "error");
+      setBusy(false);
+    }
+  }
 
   async function set(status: RecoveryRequest["status"]) {
     setBusy(true);
@@ -59,13 +79,13 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
         <span className="text-xs text-muted">{fmtDateTime(r.created_at)}</span>
       </div>
       <p className="mt-2 text-[15px]">
-        <b>@{r.username}</b>{" "}
+        <b>{r.username.includes("@") && !r.username.startsWith("@") ? r.username : `@${r.username.replace(/^@/, "")}`}</b>{" "}
         {r.user_id ? (
           <button onClick={() => onOpenUser(r.username)} className="ml-1 inline-flex items-center gap-1 text-sm font-semibold text-accent">
             <UserRound className="size-4" /> открыть аккаунт
           </button>
         ) : (
-          <span className="text-sm text-danger">аккаунт с таким именем не найден</span>
+          <span className="text-sm text-danger">аккаунт не найден</span>
         )}
       </p>
       <p className="mt-1 text-[15px]">
@@ -98,6 +118,13 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
         )}
         {note !== (r.admin_note ?? "") && (
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => set(r.status)}>Сохранить заметку</Button>
+        )}
+        {confirmDel ? (
+          <Button size="sm" variant="danger" loading={busy} className="ml-auto" onClick={remove}>Точно удалить?</Button>
+        ) : (
+          <Button size="sm" variant="ghost" disabled={busy} className="ml-auto" aria-label="Удалить заявку" onClick={() => setConfirmDel(true)}>
+            <Trash2 className="size-4" /> Удалить
+          </Button>
         )}
       </div>
     </li>
@@ -142,6 +169,7 @@ export default function AdminPage() {
   const { ready, session, profile, signOut } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<"users" | "recovery" | "settings">("users");
+  const [reqTab, setReqTab] = useState<RecoveryRequest["status"]>("new");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(50);
@@ -158,7 +186,9 @@ export default function AdminPage() {
 
   const users = useQuery(isAdmin ? `admin-users:${search}:${limit}` : null, () => adminListUsers(search, limit));
   const recovery = useQuery(isAdmin ? "admin-recovery" : null, adminListRecovery);
-  const newCount = recovery.data?.filter((r) => r.status === "new").length ?? 0;
+  const count = (st: RecoveryRequest["status"]) => recovery.data?.filter((r) => r.status === st).length ?? 0;
+  const newCount = count("new");
+  const requestsShown = recovery.data?.filter((r) => r.status === reqTab) ?? [];
 
   // Заявки и аккаунты обновляются сами: при переходе на вкладку и каждые 20 секунд
   const refetchRecovery = recovery.refetch;
@@ -286,6 +316,7 @@ export default function AdminPage() {
                           <span className="flex items-center gap-2">
                             <span className="truncate font-bold">{u.display_name}</span>
                             {u.is_admin && <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">Админ</span>}
+                            {u.is_blocked && <span className="shrink-0 rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-bold text-danger">Заблокирован</span>}
                           </span>
                           <span className="block truncate text-[13px] text-muted">@{u.username} · с {new Date(u.created_at).toLocaleDateString("ru-RU")}</span>
                         </span>
@@ -311,11 +342,32 @@ export default function AdminPage() {
         ) : !recovery.data?.length ? (
           <EmptyState icon={<ShieldCheck />} title="Заявок нет" text="Здесь появятся заявки на восстановление доступа" />
         ) : (
-          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {recovery.data.map((r) => (
-              <RecoveryCard key={r.id + r.updated_at} r={r} onOpenUser={openByUsername} />
-            ))}
-          </ul>
+          <>
+            <Segmented
+              ariaLabel="Статус заявок"
+              stretch
+              className="mb-4"
+              value={reqTab}
+              onChange={setReqTab}
+              options={[
+                { value: "new", label: `Новые · ${count("new")}` },
+                { value: "in_progress", label: `В работе · ${count("in_progress")}` },
+                { value: "done", label: `Решённые · ${count("done")}` },
+              ]}
+            />
+            {requestsShown.length ? (
+              <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {requestsShown.map((r) => (
+                  <RecoveryCard key={r.id + r.updated_at} r={r} onOpenUser={openByUsername} />
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                icon={<ShieldCheck />}
+                title={reqTab === "new" ? "Новых заявок нет" : reqTab === "in_progress" ? "Нет заявок в работе" : "Решённых заявок пока нет"}
+              />
+            )}
+          </>
         )}
       </main>
 

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { humanError } from "@/lib/errors";
 import { usernameAvailable } from "@/lib/api";
 import { browserTimezone } from "@/lib/dates";
-import { makeLoginEmail } from "@/lib/api";
+import { makeLoginEmail, EMAIL_RE } from "@/lib/api";
 import { LEGAL_VERSION } from "@/lib/legal";
 
 /** Флажок согласия: большая зона нажатия, ссылки внутри текста открываются отдельно */
@@ -32,6 +32,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [usernameState, setUsernameState] = useState<"idle" | "checking" | "free" | "taken" | "invalid">("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export default function RegisterPage() {
     usernameState === "taken" ? "Это имя уже занято" : usernameState === "invalid" ? "Только латиница, цифры и _, от 3 до 24 символов" : null;
 
   const valid =
-    name.trim() && usernameState === "free" && password.length >= 8 && agreeTerms && agreePd && agreeDist;
+    name.trim() && usernameState === "free" && EMAIL_RE.test(email.trim()) && password.length >= 8 && agreeTerms && agreePd && agreeDist;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,6 +87,7 @@ export default function RegisterPage() {
           username: username.trim(),
           display_name: name.trim(),
           timezone: browserTimezone(),
+          contact_email: email.trim().toLowerCase(),
           // Факт и время согласий хранятся в аккаунте
           consents: { version: LEGAL_VERSION, at: new Date().toISOString(), terms: true, personal_data: true, distribution: true },
         },
@@ -134,12 +136,23 @@ export default function RegisterPage() {
           error={usernameError}
         />
         <Field
+          label="Почта"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          hint="Для входа и восстановления доступа. Писем и кодов не отправляем"
+          error={email && !EMAIL_RE.test(email.trim()) ? "Проверь адрес почты" : null}
+        />
+        <Field
           label="Пароль"
           type="password"
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          hint="Не короче 8 символов. Запомни его: почту мы не спрашиваем"
+          hint="Не короче 8 символов"
           error={password && password.length < 8 ? "Не короче 8 символов" : null}
         />
         <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 px-3 py-2">

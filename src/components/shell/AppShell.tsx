@@ -11,7 +11,9 @@ import { NAV, isActive } from "./nav";
 import { useUnread } from "@/hooks/data";
 import { supabase } from "@/lib/supabase";
 import { invalidate } from "@/lib/query";
-import { keys } from "@/lib/api";
+import { keys, touchActivity, fetchBlockStatus } from "@/lib/api";
+import { BlockedScreen } from "@/components/BlockedScreen";
+import { useQuery } from "@/lib/query";
 import { asset } from "@/lib/paths";
 
 /** Подписка на новые уведомления в реальном времени + счётчик на иконке приложения */
@@ -135,12 +137,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: unread } = useUnread();
   useRealtime(session?.user.id, unread);
 
+  // Блокировка аккаунта: входить можно, но сразу виден экран «Аккаунт заблокирован»
+  const block = useQuery(session ? "block-status" : null, fetchBlockStatus);
+  const blocked = block.data?.blocked === true;
+  const recheckBlock = block.refetch;
+
+  // Для поддержки: когда пользователь заходил в приложение
+  const uid = session?.user.id;
+  useEffect(() => {
+    if (!uid) return;
+    touchActivity();
+    const t = setInterval(() => document.visibilityState === "visible" && touchActivity(), 5 * 60 * 1000);
+    const onVisible = () => document.visibilityState === "visible" && touchActivity();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [uid]);
+
   useEffect(() => {
     if (!ready) return;
     if (!session) router.replace(`/login/?next=${encodeURIComponent(pathname)}`);
     else if (profile?.is_admin) router.replace("/admin/");
-    else if (profile && !profile.onboarded) router.replace("/onboarding/");
-  }, [ready, session, profile, router, pathname]);
+    else if (profile && !profile.onboarded && !block.loading && !blocked) router.replace("/onboarding/");
+  }, [ready, session, profile, router, pathname, block.loading, blocked]);
 
   // Service Worker: офлайн-оболочка и push
   useEffect(() => {
@@ -149,7 +170,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  if (!ready || !session || !profile || !profile.onboarded || profile.is_admin) {
+  if (session && profile && block.data?.blocked) {
+    return <BlockedScreen status={block.data} onRecheck={recheckBlock} />;
+  }
+
+  if (!ready || !session || !profile || block.loading || !profile.onboarded || profile.is_admin) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
         <Spinner />

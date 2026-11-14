@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import type {
   ActivityRow, EntryLite, FriendRequest, FriendRow, MoodEntry, NotificationRow,
   NotificationSettings, PrivacySettings, Profile, UserProfileView, DayPart, MoodValue,
-  AdminUser, RecoveryRequest,
+  AdminUser, RecoveryRequest, BlockStatus,
 } from "./types";
 import { compressImage } from "./image";
 
@@ -236,12 +236,23 @@ export function makeLoginEmail() {
   return `u_${rnd}@${LOGIN_DOMAIN}`;
 }
 
-/** Имя пользователя или почта → адрес для входа */
+/** Имя пользователя или почта → служебный адрес для входа (ищет база) */
 export async function resolveLoginEmail(login: string): Promise<string | null> {
-  const v = login.trim().toLowerCase().replace(/^@/, "");
-  if (v.includes("@")) return v;
+  const v = login.trim().toLowerCase();
+  if (!v) return null;
   return (check(await supabase.rpc("login_email", { p_username: v })) as string | null) ?? null;
 }
+
+/** Почта для восстановления (видят только владелец и администратор) */
+export async function fetchContactEmail(): Promise<string | null> {
+  const { data, error } = await supabase.from("user_contacts").select("email").maybeSingle();
+  if (error) throw error;
+  return (data?.email as string | null) ?? null;
+}
+export async function updateContactEmail(uid: string, email: string) {
+  check(await supabase.from("user_contacts").update({ email: email.trim().toLowerCase() }).eq("user_id", uid));
+}
+export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export async function submitRecoveryRequest(username: string, contact: string, message: string) {
   check(await supabase.rpc("submit_recovery_request", { p_username: username, p_contact: contact, p_message: message }));
@@ -268,6 +279,28 @@ export async function adminCreateEntry(userId: string, date: string, time: Date,
     }),
   );
 }
+export async function adminSetContactEmail(userId: string, email: string) {
+  check(await supabase.rpc("admin_set_contact_email", { p_user: userId, p_email: email }));
+}
+export async function adminUpdatePrivacy(userId: string, visibility: string, photos: boolean) {
+  check(await supabase.rpc("admin_update_privacy", { p_user: userId, p_visibility: visibility, p_photos: photos }));
+}
+export async function adminUserPrivacy(userId: string): Promise<{ public_visibility: string; photos_public: boolean } | null> {
+  const rows = (check(await supabase.rpc("admin_user_privacy", { p_user: userId })) ?? []) as { public_visibility: string; photos_public: boolean }[];
+  return rows[0] ?? null;
+}
+export interface ActivitySession { id: string; started_at: string; last_seen_at: string; user_agent: string | null }
+export async function adminUserActivity(userId: string, from?: string, to?: string): Promise<ActivitySession[]> {
+  return (check(await supabase.rpc("admin_user_activity", { p_user: userId, p_from: from ?? null, p_to: to ?? null })) ?? []) as ActivitySession[];
+}
+export async function touchActivity() {
+  // Тихо; отсутствие сессии (вышел из системы) не должно показывать ошибку
+  try {
+    await supabase.rpc("touch_activity", { p_user_agent: navigator.userAgent });
+  } catch {
+    /* не критично */
+  }
+}
 export async function adminDeleteEntry(entry: MoodEntry) {
   if (entry.photo_path) await supabase.storage.from("mood-photos").remove([entry.photo_path]);
   check(await supabase.rpc("admin_delete_entry", { p_entry: entry.id }));
@@ -293,6 +326,21 @@ export async function adminDeleteUser(userId: string) {
 export async function adminListRecovery(): Promise<RecoveryRequest[]> {
   return (check(await supabase.rpc("admin_list_recovery")) ?? []) as RecoveryRequest[];
 }
+export async function adminDeleteRecovery(id: string) {
+  check(await supabase.rpc("admin_delete_recovery", { p_id: id }));
+}
 export async function adminUpdateRecovery(id: string, status: RecoveryRequest["status"], note: string) {
   check(await supabase.rpc("admin_update_recovery", { p_id: id, p_status: status, p_note: note }));
+}
+
+// ---------- Блокировка аккаунтов ----------
+export async function fetchBlockStatus(): Promise<BlockStatus> {
+  return check(await supabase.rpc("my_block_status")) as BlockStatus;
+}
+/** until = null — навсегда */
+export async function adminBlockUser(userId: string, until: string | null, reason: string) {
+  check(await supabase.rpc("admin_block_user", { p_user: userId, p_until: until, p_reason: reason }));
+}
+export async function adminUnblockUser(userId: string) {
+  check(await supabase.rpc("admin_unblock_user", { p_user: userId }));
 }

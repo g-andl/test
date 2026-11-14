@@ -16,6 +16,8 @@ export interface Profile {
 export interface AdminUser {
   id: string;
   email: string;
+  /** Почта для восстановления */
+  contact_email: string | null;
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
@@ -25,7 +27,17 @@ export interface AdminUser {
   friends_count: number;
   public_visibility: string | null;
   is_admin: boolean;
+  is_blocked: boolean;
+  /** null при is_blocked = true означает «навсегда» */
+  blocked_until: string | null;
+  block_reason: string | null;
   total: number;
+}
+
+export interface BlockStatus {
+  blocked: boolean;
+  until?: string | null;
+  reason?: string | null;
 }
 
 export interface RecoveryRequest {

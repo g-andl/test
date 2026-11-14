@@ -20,7 +20,7 @@ async function signUp(username, name) {
   const { data, error } = await c.auth.signUp({
     email: `u_${username}@users.nastroy.local`,
     password: 'Passw0rd!x',
-    options: { data: { username, display_name: name } },
+    options: { data: { username, display_name: name, contact_email: `${username}@mail.test` } },
   });
   if (error) throw error;
   if (!data.session) {
@@ -104,6 +104,7 @@ test('админ видит аккаунты с датой создания и �
 });
 
 test('заявка на восстановление → админ задаёт новый пароль', async () => {
+  await admin.from('recovery_requests').delete().gte('created_at', '2000-01-01');
   const s = await anon().rpc('submit_recovery_request', { p_username: `@${user.username}`, p_contact: '@tg_user', p_message: 'Забыл пароль после смены телефона' });
   assert.ifError(s.error);
   const bad = await anon().rpc('submit_recovery_request', { p_username: 'x', p_contact: '', p_message: 'короче' });
@@ -138,6 +139,145 @@ test('админ ставит отметку за пользователя, др
     p_user: other.id, p_date: today, p_time: new Date().toISOString(), p_part: 'day', p_mood: 1, p_note: '',
   });
   assert.ok(deny.error, 'обычный пользователь не может ставить отметки за других');
+});
+
+test('имена с admin/support занять нельзя', async () => {
+  for (const n of ['admin', 'my_admin', 'support1', 'root']) {
+    const { data } = await anon().rpc('username_available', { p_username: n });
+    assert.equal(data, false, `${n} недоступно`);
+  }
+  const r = await user.c.from('profiles').update({ username: `admin_${run}` }).eq('id', user.id);
+  assert.ok(r.error, 'нельзя переименоваться в admin');
+  const bad = await anon().auth.signUp({ email: `u_x${run}@users.nastroy.local`, password: 'Passw0rd!x', options: { data: { username: `support_${run}`, display_name: 'x' } } });
+  assert.ok(bad.error, 'нельзя зарегистрироваться с запрещённым именем');
+});
+
+test('почта для восстановления: видит владелец и админ, не другие', async () => {
+  const own = await user.c.from('user_contacts').select('email').single();
+  assert.equal(own.data.email, `${user.username}@mail.test`);
+  const foreign = await other.c.from('user_contacts').select('email').eq('user_id', user.id);
+  assert.equal((foreign.data ?? []).length, 0);
+  const upd = await user.c.from('user_contacts').update({ email: `new_${run}@mail.test` }).eq('user_id', user.id).select();
+  assert.equal(upd.data.length, 1);
+  const { data } = await boss.c.rpc('admin_list_users', { p_search: `new_${run}@mail.test` });
+  assert.equal(data.length, 1, 'админ находит по почте');
+  assert.equal(data[0].contact_email, `new_${run}@mail.test`);
+});
+
+test('заявка по почте привязывается к аккаунту', async () => {
+  await admin.from('recovery_requests').delete().gte('created_at', '2000-01-01');
+  const s = await anon().rpc('submit_recovery_request', { p_username: `new_${run}@mail.test`, p_contact: '@by_mail', p_message: 'Не помню имя пользователя' });
+  assert.ifError(s.error);
+  const empty = await anon().rpc('submit_recovery_request', { p_username: '', p_contact: '@x_y_z', p_message: 'нет ни имени ни почты' });
+  assert.ok(empty.error, 'без имени и почты заявка не принимается');
+  const { data } = await boss.c.rpc('admin_list_recovery');
+  assert.equal(data.find((r) => r.contact === '@by_mail').user_id, user.id);
+});
+
+test('активность: заходы фиксируются сеансами, админ ищет по датам', async () => {
+  await user.c.rpc('touch_activity', { p_user_agent: 'test-agent' });
+  await user.c.rpc('touch_activity', { p_user_agent: 'test-agent' });
+  const { data } = await boss.c.rpc('admin_user_activity', { p_user: user.id });
+  assert.equal(data.length, 1, 'повторный заход в течение 30 минут — тот же сеанс');
+  // Сеанс старше 30 минут — новый заход
+  await admin.from('user_sessions').update({ last_seen_at: new Date(Date.now() - 3600_000).toISOString() }).eq('user_id', user.id);
+  await user.c.rpc('touch_activity', { p_user_agent: 'test-agent' });
+  const { data: two } = await boss.c.rpc('admin_user_activity', { p_user: user.id });
+  assert.equal(two.length, 2);
+  const tomorrow = new Date(Date.now() + 86400_000).toISOString();
+  const { data: none } = await boss.c.rpc('admin_user_activity', { p_user: user.id, p_from: tomorrow });
+  assert.equal(none.length, 0, 'поиск по дате: после завтра заходов нет');
+  const hide = await other.c.rpc('admin_user_activity', { p_user: user.id });
+  assert.ok(hide.error, 'обычному пользователю активность чужого аккаунта недоступна');
+  const direct = await user.c.from('user_sessions').select('*');
+  assert.ok(direct.error || direct.data.length === 0, 'таблица сеансов закрыта');
+});
+
+test('админ меняет приватность и почту пользователя', async () => {
+  const { error } = await boss.c.rpc('admin_update_privacy', { p_user: user.id, p_visibility: 'none', p_photos: false });
+  assert.ifError(error);
+  const { data: s } = await admin.from('privacy_settings').select('public_visibility').eq('user_id', user.id).single();
+  assert.equal(s.public_visibility, 'none');
+  const bad = await boss.c.rpc('admin_update_privacy', { p_user: user.id, p_visibility: 'hack', p_photos: false });
+  assert.ok(bad.error);
+  const deny = await other.c.rpc('admin_update_privacy', { p_user: user.id, p_visibility: 'all', p_photos: true });
+  assert.ok(deny.error, 'обычный пользователь не меняет чужую приватность');
+  await boss.c.rpc('admin_set_contact_email', { p_user: user.id, p_email: `fixed_${run}@mail.test` });
+  const { data: c } = await admin.from('user_contacts').select('email').eq('user_id', user.id).single();
+  assert.equal(c.email, `fixed_${run}@mail.test`);
+});
+
+test('админ удаляет заявку, обычный пользователь — нет', async () => {
+  await admin.from('recovery_requests').delete().gte('created_at', '2000-01-01');
+  await anon().rpc('submit_recovery_request', { p_username: user.username, p_contact: '@to_delete', p_message: 'заявка на удаление' });
+  const { data } = await boss.c.rpc('admin_list_recovery');
+  const id = data.find((r) => r.contact === '@to_delete').id;
+  const deny = await user.c.rpc('admin_delete_recovery', { p_id: id });
+  assert.ok(deny.error);
+  const ok = await boss.c.rpc('admin_delete_recovery', { p_id: id });
+  assert.ifError(ok.error);
+  const { data: left } = await admin.from('recovery_requests').select('id').eq('id', id);
+  assert.equal(left.length, 0);
+});
+
+test('блокировка: заблокированный входит, но ничего не может', async () => {
+  const victim = await signUp(`blk_${run}`, 'Нарушитель');
+  const friend = await signUp(`bf_${run}`, 'Друг нарушителя');
+  await victim.c.rpc('send_friend_request', { p_addressee: friend.id });
+  const { data: fr } = await friend.c.from('friendships').select('id').eq('requester_id', victim.id).single();
+  await friend.c.from('friendships').update({ status: 'accepted' }).eq('id', fr.id);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'UTC' });
+  const row = (v) => ({ user_id: victim.id, entry_date: today, mood_value: v, mood_time: new Date().toISOString(), day_part: 'day' });
+
+  assert.equal((await victim.c.rpc('my_block_status')).data.blocked, false);
+  assert.ifError((await victim.c.from('mood_entries').insert(row(4))).error, 'до блокировки отметки ставятся');
+
+  // Права: только администратор, себя и админов блокировать нельзя
+  assert.ok((await user.c.rpc('admin_block_user', { p_user: victim.id, p_until: null, p_reason: 'x' })).error);
+  assert.ok((await boss.c.rpc('admin_block_user', { p_user: boss.id, p_until: null, p_reason: '' })).error);
+  assert.ok((await boss.c.rpc('admin_block_user', { p_user: victim.id, p_until: new Date(Date.now() - 1000).toISOString(), p_reason: '' })).error, 'срок в прошлом');
+
+  // Блокировка на сутки
+  const until = new Date(Date.now() + 86400_000).toISOString();
+  assert.ifError((await boss.c.rpc('admin_block_user', { p_user: victim.id, p_until: until, p_reason: 'Спам' })).error);
+  const st = (await victim.c.rpc('my_block_status')).data;
+  assert.equal(st.blocked, true);
+  assert.equal(st.reason, 'Спам');
+  assert.equal(new Date(st.until).toISOString(), until);
+
+  // Заблокированный не может писать
+  assert.ok((await victim.c.from('mood_entries').insert({ ...row(2), mood_time: new Date(Date.now() - 1000).toISOString() })).error, 'новая отметка запрещена');
+  const { data: mine } = await admin.from('mood_entries').select('id').eq('user_id', victim.id);
+  assert.ok((await victim.c.from('mood_entries').update({ mood_value: 1 }).eq('id', mine[0].id).select()).data.length === 0, 'правка запрещена');
+  assert.ok((await victim.c.rpc('send_friend_request', { p_addressee: other.id })).error, 'заявка запрещена');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  assert.ok((await victim.c.storage.from('mood-photos').upload(`${victim.id}/b.png`, png, { contentType: 'image/png' })).error, 'загрузка запрещена');
+  const prof = await victim.c.rpc('get_user_profile', { p_username: friend.username });
+  assert.equal(prof.data.access, 'none', 'чужие профили для заблокированного закрыты');
+  assert.equal((await victim.c.rpc('get_friends')).data.length, 0, 'список друзей пуст');
+  assert.equal((await victim.c.from('profiles').select('id').eq('id', friend.id)).data.length, 0, 'чужие профили не читаются');
+  assert.equal((await victim.c.from('profiles').select('id').eq('id', victim.id)).data.length, 1, 'свой профиль читается');
+
+  // В админке блокировка видна
+  const { data: list } = await boss.c.rpc('admin_list_users', { p_search: victim.username });
+  assert.equal(list[0].is_blocked, true);
+  assert.equal(list[0].block_reason, 'Спам');
+
+  // Срок истёк — блокировка снимается сама
+  await admin.from('user_blocks').update({ blocked_until: new Date(Date.now() - 1000).toISOString() }).eq('user_id', victim.id);
+  assert.equal((await victim.c.rpc('my_block_status')).data.blocked, false);
+  assert.ifError((await victim.c.from('mood_entries').insert({ ...row(3), mood_time: new Date(Date.now() - 2000).toISOString() })).error, 'после срока снова можно');
+
+  // Бессрочная блокировка и разблокировка
+  await boss.c.rpc('admin_block_user', { p_user: victim.id, p_until: null, p_reason: '' });
+  const perm = (await victim.c.rpc('my_block_status')).data;
+  assert.equal(perm.blocked, true);
+  assert.equal(perm.until, null, 'навсегда');
+  await boss.c.rpc('admin_unblock_user', { p_user: victim.id });
+  assert.equal((await victim.c.rpc('my_block_status')).data.blocked, false);
+  await boss.c.rpc('admin_block_user', { p_user: victim.id, p_until: null, p_reason: '' });
+  assert.ok((await user.c.rpc('admin_unblock_user', { p_user: victim.id })).error, 'обычный пользователь не снимает блокировку');
+  assert.equal((await victim.c.rpc('my_block_status')).data.blocked, true, 'блокировка осталась');
 });
 
 test('админ удаляет аккаунт, но не себя', async () => {
