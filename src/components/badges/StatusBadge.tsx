@@ -7,9 +7,10 @@ import type { Badge } from "@/lib/types";
 const ADMIN_COLOR = "#4d8df7";
 
 /** Цветная пометка: фон — мягкая заливка цвета, текст — тот же цвет, смешанный с цветом текста темы (читается в обеих темах) */
-export function BadgePill({ name, color, className = "" }: { name: string; color: string; className?: string }) {
+export function BadgePill({ name, color, hint, className = "" }: { name: string; color: string; hint?: string | null; className?: string }) {
   return (
     <span
+      title={hint ?? undefined}
       className={`inline-flex max-w-full shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold leading-4 ${className}`}
       style={{
         background: `color-mix(in srgb, ${color} 18%, transparent)`,
@@ -31,5 +32,5 @@ export function StatusBadge({ userId, isAdmin, className = "" }: { userId?: stri
   const { data } = useBadges();
   if (isAdmin) return <BadgePill name="Администратор" color={ADMIN_COLOR} className={className} />;
   const b: Badge | undefined = userId ? data?.byUser[userId] : undefined;
-  return b ? <BadgePill name={b.name} color={b.color} className={className} /> : null;
+  return b ? <BadgePill name={b.name} color={b.color} hint={b.hint} className={className} /> : null;
 }

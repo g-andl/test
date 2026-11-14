@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useMoodSheet } from "@/components/mood/MoodSheetProvider";
 import { WeekStrip } from "@/components/home/WeekStrip";
-import { TodayCard } from "@/components/home/TodayCard";
+import { TodayCard, TodayEntries } from "@/components/home/TodayCard";
 import { FriendsMoods } from "@/components/home/FriendsMoods";
 import { MonthSummary } from "@/components/home/MonthSummary";
 import { FriendsActivity } from "@/components/home/FriendsActivity";
@@ -43,31 +43,36 @@ export default function HomePage() {
   ) : error ? (
     <ErrorState text={humanError(error)} onRetry={refetch} />
   ) : (
-    <TodayCard entries={today} onOpen={(mood) => openMood({ mood })} />
+    <>
+      <TodayCard entries={today} onOpen={(mood) => openMood({ mood })} />
+      <TodayEntries entries={today} />
+    </>
   );
   const monthBlock = loading ? <Skeleton className="h-40" /> : <MonthSummary entries={entries} />;
+  // «Эта неделя» — в самом низу главной страницы
+  const weekBlock = <WeekStrip byDate={dayAgg} onPick={(date) => router.push(`/diary/?day=${date}`)} />;
 
   return (
     <>
       <PageHeader eyebrow={capitalize(formatLong(new Date()))} title={`${greeting()}, ${firstName}!`} />
-      {/* Телефон: одна колонка — сегодня, неделя, друзья, месяц */}
+      {/* Телефон: одна колонка — отметка, сегодня, друзья, месяц, неделя */}
       <div className="flex flex-col gap-5 lg:hidden">
         {todayBlock}
-        <WeekStrip byDate={dayAgg} onPick={(date) => router.push(`/diary/?day=${date}`)} />
         <FriendsMoods />
         {monthBlock}
+        {weekBlock}
       </div>
-      {/* Компьютер: слева «сегодня» и друзья, справа неделя и месяц */}
+      {/* Компьютер: слева отметка, сегодня и друзья, справа месяц и лента; неделя — внизу на всю ширину */}
       <div className="hidden gap-6 lg:grid lg:grid-cols-12 lg:items-start">
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-7">
           {todayBlock}
           <FriendsMoods />
         </div>
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-5">
-          <WeekStrip byDate={dayAgg} onPick={(date) => router.push(`/diary/?day=${date}`)} />
           {monthBlock}
           <FriendsActivity />
         </div>
+        <div className="min-w-0 lg:col-span-12">{weekBlock}</div>
       </div>
     </>
   );

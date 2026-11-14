@@ -16,7 +16,8 @@
     "test:support": "node --test tests/backend/support.test.mjs",
     "test:e2e:support": "node tests/e2e/support.mjs",
     "test:badges": "node --test tests/backend/badges.test.mjs",
-    "test:e2e:badges": "node tests/e2e/badges.mjs"
+    "test:e2e:badges": "node tests/e2e/badges.mjs",
+    "test:e2e:cards": "node tests/e2e/cards.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
