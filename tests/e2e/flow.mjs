@@ -267,7 +267,7 @@ try {
     // Подписи настроений в окне отметки не должны выходить за плашки
     if (w < 768) {
       await p.goto(`${BASE}/`);
-      await p.getByRole("button", { name: /Изменить отметку|С заметкой/ }).first().click();
+      await p.getByRole("button", { name: /Изменить отметку/ }).first().click();
       await p.getByRole("dialog").waitFor();
       await p.waitForTimeout(500);
       const bad = await p.evaluate(() =>

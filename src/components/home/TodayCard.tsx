@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Camera, ChevronRight, ListOrdered } from "lucide-react";
+import { ChevronRight, ListOrdered } from "lucide-react";
 import { MOODS } from "@/lib/mood";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { EntryCard } from "@/components/diary/EntryCard";
@@ -18,7 +18,7 @@ export function TodayCard({ entries, onOpen }: { entries: MoodEntry[]; onOpen: (
         {has ? "Как ты сейчас?" : "Как ты сегодня?"}
       </h2>
       <p className="mt-1 text-[15px] text-muted">
-        {has ? "Настроение меняется — отметь, если что-то изменилось" : "Выбери настроение — это займёт пару секунд"}
+        {has ? "Настроение меняется — отметь, если что-то изменилось" : "Выбери смайлик — заметку и фото можно добавить следом"}
       </p>
       <div className="mt-5 grid grid-cols-5 gap-1.5 lg:gap-3">
         {MOODS.map((m) => (
@@ -33,12 +33,6 @@ export function TodayCard({ entries, onOpen }: { entries: MoodEntry[]; onOpen: (
           </button>
         ))}
       </div>
-      <button
-        onClick={() => onOpen()}
-        className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-[15px] font-semibold text-ink-fg transition active:scale-[0.98]"
-      >
-        <Camera className="size-[18px]" /> С заметкой или фото
-      </button>
 
       {has && (
         <div className="mt-5 border-t border-line pt-4">
