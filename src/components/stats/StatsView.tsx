@@ -95,9 +95,11 @@ export function StatsView({
           <Card className="lg:col-span-2">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div className="rounded-2xl bg-surface-2 p-3.5">
-                <p className="text-xs font-medium text-muted">Отмечено</p>
-                <p className="mt-1 text-[24px] font-extrabold tracking-tight">{s.count}</p>
-                <p className="text-xs text-muted">из {range.days} {plural(range.days, ["дня", "дней", "дней"])}</p>
+                <p className="text-xs font-medium text-muted">Дней с отметкой</p>
+                <p className="mt-1 text-[24px] font-extrabold tracking-tight">{s.days}</p>
+                <p className="text-xs text-muted">
+                  из {range.days} · {s.count} {plural(s.count, ["отметка", "отметки", "отметок"])}
+                </p>
               </div>
               <div className="rounded-2xl bg-surface-2 p-3.5">
                 <p className="text-xs font-medium text-muted">Среднее</p>

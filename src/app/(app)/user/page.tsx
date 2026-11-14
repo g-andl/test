@@ -1,27 +1,67 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, UserX, UserPlus, Check, Clock3, BellOff, Bell, UserMinus } from "lucide-react";
+import { Lock, UserPlus, Check, Clock3, BellOff, Bell, UserMinus, CalendarDays, BarChart3, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Card, CardTitle } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Sheet } from "@/components/ui/Sheet";
 import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/States";
 import { MonthCalendar } from "@/components/diary/MonthCalendar";
-import { DaySheet } from "@/components/diary/DaySheet";
+import { EntryCard } from "@/components/diary/EntryCard";
 import { StatsView } from "@/components/stats/StatsView";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  fetchUserProfile, fetchFriendEntries, sendFriendRequest, acceptRequest, removeFriendship, setMuted, keys,
+  fetchUserProfile, fetchUserEntries, sendFriendRequest, acceptRequest, removeFriendship, setMuted, keys,
 } from "@/lib/api";
-import { moodOf, dayPartOf } from "@/lib/mood";
-import { formatRelativeDay, formatTime } from "@/lib/dates";
+import { moodOf } from "@/lib/mood";
+import { capitalize, formatLong, formatRelativeDay, formatTime, fromKey } from "@/lib/dates";
+import { aggregateByDay } from "@/lib/stats";
 import { humanError } from "@/lib/errors";
+import { groupByDate } from "@/hooks/data";
 import type { EntryLite } from "@/lib/types";
-import { MoodEmoji } from "@/components/mood/MoodEmoji";
+
+/** Карточки последних отметок: листаются пальцем на телефоне, стрелками на компьютере */
+function EntryCarousel({ entries }: { entries: EntryLite[] }) {
+  const [el, setEl] = useState<HTMLUListElement | null>(null);
+  const scroll = (dir: number) => el?.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
+  return (
+    <div className="relative">
+      <ul
+        ref={setEl}
+        className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 min-[380px]:-mx-5 min-[380px]:px-5 lg:mx-0 lg:px-0"
+      >
+        {entries.map((e) => {
+          const m = moodOf(e.mood_value);
+          return (
+            <li key={e.id} className="w-[85%] shrink-0 snap-center sm:w-[60%] lg:w-[calc(50%-6px)]">
+              <div className="flex h-full flex-col rounded-[24px] p-1" style={{ background: m.soft }}>
+                <p className="px-4 pb-1 pt-3 text-[13px] font-semibold text-text-2">
+                  {formatRelativeDay(e.entry_date)} · {formatTime(e.mood_time)}
+                </p>
+                <EntryCard entry={e} className="flex-1" />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {entries.length > 2 && (
+        <div className="mt-2 hidden justify-end gap-2 lg:flex">
+          <button onClick={() => scroll(-1)} aria-label="Назад" className="flex size-10 items-center justify-center rounded-full bg-surface shadow-card">
+            <ChevronLeft className="size-5" />
+          </button>
+          <button onClick={() => scroll(1)} aria-label="Вперёд" className="flex size-10 items-center justify-center rounded-full bg-surface shadow-card">
+            <ChevronRight className="size-5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function UserProfile() {
   const params = useSearchParams();
@@ -30,19 +70,22 @@ function UserProfile() {
   const { session } = useAuth();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [showMood, setShowMood] = useState(false);
+  const [panel, setPanel] = useState<"calendar" | "stats" | null>(null);
   const [day, setDay] = useState<string | null>(null);
   const now = new Date();
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
 
   const prof = useQuery(username ? keys.user(username) : null, () => fetchUserProfile(username));
   const p = prof.data;
-  const canHistory = !!p && p.relation === "friends" && (p.can_see_calendar || p.can_see_stats);
-  const entriesQ = useQuery(canHistory ? keys.friendEntries(p!.id) : null, () => fetchFriendEntries(p!.id));
+  // Записи грузим только когда пользователь сам захотел посмотреть
+  const wantEntries = !!p && p.access !== "none" && (showMood || panel !== null);
+  const entriesQ = useQuery(wantEntries ? keys.userEntries(p!.id) : null, () => fetchUserEntries(p!.id));
   const entries = useMemo(() => entriesQ.data ?? [], [entriesQ.data]);
-  const byDate = useMemo(() => new Map<string, EntryLite>(entries.map((e) => [e.entry_date, e])), [entries]);
+  const dayAgg = useMemo(() => aggregateByDay(entries), [entries]);
+  const byDate = useMemo(() => groupByDate(entries), [entries]);
 
-  // Свой профиль открываем в разделе «Профиль»
   useEffect(() => {
     if (p?.relation === "self") router.replace("/profile/");
   }, [p?.relation, router]);
@@ -51,10 +94,10 @@ function UserProfile() {
     setBusy(true);
     try {
       await fn();
-      invalidate(keys.user(username), keys.friends, keys.requests, keys.activity);
-      if (p) invalidate(keys.friendEntries(p.id));
+      invalidate(keys.user(username), keys.friends, keys.requests, keys.activity, "muted");
+      if (p) invalidate(keys.userEntries(p.id));
       toast(ok);
-      setMenu(false);
+      setConfirmRemove(false);
     } catch (e) {
       toast(humanError(e), "error");
     } finally {
@@ -72,16 +115,36 @@ function UserProfile() {
     );
   }
   if (prof.error) return <ErrorState text={humanError(prof.error)} onRetry={prof.refetch} />;
-  if (!p) return <EmptyState icon={<UserX />} title="Пользователь не найден" text="Возможно, он сменил имя или удалил аккаунт" />;
+  if (!p) return <EmptyState icon={<Lock />} title="Пользователь не найден" text="Возможно, он сменил имя или удалил аккаунт" />;
 
+  const isFriend = p.relation === "friends";
   const latest = p.latest;
   const lm = latest ? moodOf(latest.mood_value) : null;
 
-  const action =
-    p.relation === "friends" ? (
-      <Button variant="secondary" onClick={() => setMenu(true)}>
-        <Check className="size-5" /> В друзьях
-      </Button>
+  const relationAction =
+    isFriend ? (
+      <div className="flex items-center gap-2">
+        <span className="flex h-11 items-center gap-1.5 rounded-2xl bg-accent-soft px-4 text-sm font-semibold text-accent">
+          <Check className="size-4" /> В друзьях
+        </span>
+        <button
+          onClick={() => act(() => setMuted(session!.user.id, p.id, !p.is_muted), p.is_muted ? "Уведомления включены" : "Уведомления отключены")}
+          disabled={busy}
+          aria-label={p.is_muted ? "Включить уведомления от друга" : "Отключить уведомления от друга"}
+          title={p.is_muted ? "Включить уведомления" : "Отключить уведомления"}
+          className={`flex size-11 items-center justify-center rounded-2xl transition active:scale-95 ${p.is_muted ? "bg-surface-2 text-muted" : "bg-surface-2 text-text"}`}
+        >
+          {p.is_muted ? <BellOff className="size-5" /> : <Bell className="size-5" />}
+        </button>
+        <button
+          onClick={() => setConfirmRemove(true)}
+          aria-label="Удалить из друзей"
+          title="Удалить из друзей"
+          className="flex size-11 items-center justify-center rounded-2xl bg-danger-soft text-danger transition active:scale-95"
+        >
+          <UserMinus className="size-5" />
+        </button>
+      </div>
     ) : p.relation === "outgoing" ? (
       <Button variant="secondary" loading={busy} onClick={() => act(() => removeFriendship(p.friendship_id!), "Заявка отменена")}>
         <Clock3 className="size-5" /> Отменить заявку
@@ -104,90 +167,120 @@ function UserProfile() {
   return (
     <>
       <PageHeader back title="" bell={false} />
-      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
-        <div className="flex flex-col gap-4">
-          <Card className="flex flex-col items-center text-center">
-            <Avatar src={p.avatar_url} name={p.display_name} size={96} />
-            <h1 className="mt-3 text-[24px] font-extrabold tracking-tight">{p.display_name}</h1>
-            <p className="text-muted">@{p.username}</p>
-            <div className="mt-4">{action}</div>
-            {p.is_muted && p.relation === "friends" && (
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted"><BellOff className="size-3.5" /> Уведомления отключены</p>
-            )}
+      <div className="flex flex-col gap-4 lg:max-w-3xl">
+        <Card className="flex flex-col items-center text-center">
+          <Avatar src={p.avatar_url} name={p.display_name} size={88} />
+          <h1 className="mt-3 text-[24px] font-extrabold tracking-tight">{p.display_name}</h1>
+          <p className="text-muted">@{p.username}</p>
+          <div className="mt-4">{relationAction}</div>
+          {p.is_muted && isFriend && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted"><BellOff className="size-3.5" /> Уведомления от друга отключены</p>
+          )}
+        </Card>
+
+        {p.access === "none" ? (
+          <Card>
+            <EmptyState icon={<Lock />} title="Закрытый профиль" text="Настроение видят только друзья. Отправь заявку, чтобы видеть его." />
           </Card>
+        ) : !latest ? (
+          <Card>
+            <EmptyState icon={<Eye />} title="Пока нет отметок" text={`${p.display_name} ещё не отмечал(а) настроение`} />
+          </Card>
+        ) : !showMood ? (
+          /* Настроение открывается только по желанию */
+          <button
+            onClick={() => setShowMood(true)}
+            className="flex w-full items-center gap-4 rounded-[24px] p-5 text-left transition active:scale-[0.99]"
+            style={{ background: lm!.soft }}
+          >
+            <span className="flex size-16 shrink-0 items-center justify-center rounded-[20px] bg-surface shadow-card">
+              <MoodEmoji value={lm!.value} size={46} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-text-2">
+                {formatRelativeDay(latest.entry_date)}, {formatTime(latest.mood_time)}
+              </span>
+              <span className="block text-[22px] font-extrabold" style={{ color: lm!.color }}>{lm!.label}</span>
+            </span>
+            <span className="flex h-11 shrink-0 items-center gap-1.5 rounded-2xl bg-surface px-4 text-sm font-semibold shadow-card">
+              <Eye className="size-4" /> Смотреть
+            </span>
+          </button>
+        ) : (
+          <section>
+            <h2 className="mb-3 text-[19px] font-bold tracking-tight">
+              {p.access === "latest" ? "Последняя отметка" : "Последние отметки"}
+            </h2>
+            {entriesQ.loading ? (
+              <Skeleton className="h-48" />
+            ) : entriesQ.error ? (
+              <ErrorState text={humanError(entriesQ.error)} onRetry={entriesQ.refetch} />
+            ) : (
+              <EntryCarousel entries={entries.slice(0, 20)} />
+            )}
+          </section>
+        )}
 
-          {lm && latest && (
-            <section className="rounded-[24px] p-5" style={{ background: lm.soft }}>
-              <p className="text-sm font-semibold text-text-2">Последнее настроение</p>
-              <div className="mt-2 flex items-center gap-3">
-                <MoodEmoji value={lm.value} size={52} />
-                <div>
-                  <p className="text-[22px] font-extrabold" style={{ color: lm.color }}>{lm.label}</p>
-                  <p className="text-sm text-text-2">
-                    {formatRelativeDay(latest.entry_date)}, {dayPartOf(latest.day_part).label.toLowerCase()} · {formatTime(latest.mood_time)}
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-4">
-          {p.relation !== "friends" ? (
-            <Card>
-              <EmptyState icon={<Lock />} title="Профиль виден только друзьям" text="Добавь пользователя в друзья, чтобы видеть его настроение" />
-            </Card>
-          ) : p.is_private ? (
-            <Card>
-              <EmptyState icon={<Lock />} title="Закрытый профиль" text={`${p.display_name} решил(а) не показывать своё настроение`} />
-            </Card>
-          ) : !canHistory ? (
-            <Card className="flex items-center gap-3 text-sm text-text-2">
-              <Lock className="size-5 shrink-0 text-muted" /> Календарь и статистика скрыты настройками приватности
-            </Card>
-          ) : entriesQ.loading ? (
-            <div className="flex justify-center py-10"><Spinner /></div>
-          ) : entriesQ.error ? (
-            <ErrorState text={humanError(entriesQ.error)} onRetry={entriesQ.refetch} />
-          ) : (
-            <>
-              {p.can_see_calendar && (
-                <Card>
-                  <CardTitle>Календарь</CardTitle>
-                  <MonthCalendar year={ym.y} month={ym.m} onChange={(y, m) => setYm({ y, m })} byDate={byDate} onDayClick={setDay} />
-                </Card>
-              )}
-              {p.can_see_stats && (
-                <>
-                  <h2 className="mt-2 text-[19px] font-bold tracking-tight">Статистика</h2>
-                  <StatsView entries={entries} showInsights={false} />
-                </>
-              )}
-            </>
-          )}
-        </div>
+        {p.can_see_history && latest && (
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="lg" onClick={() => setPanel("calendar")}>
+              <CalendarDays className="size-5" /> Календарь
+            </Button>
+            <Button variant="outline" size="lg" onClick={() => setPanel("stats")}>
+              <BarChart3 className="size-5" /> Статистика
+            </Button>
+          </div>
+        )}
+        {p.access === "latest" && (
+          <p className="flex items-center gap-2 px-1 text-[13px] text-muted">
+            <Lock className="size-4" /> Календарь и статистику {p.display_name} показывает только друзьям
+          </p>
+        )}
       </div>
 
-      <DaySheet date={day} entry={day ? byDate.get(day) : null} onClose={() => setDay(null)} />
+      {/* Календарь: по нажатию на день — его отметки ниже */}
+      <Sheet open={panel === "calendar"} onClose={() => { setPanel(null); setDay(null); }} title="Календарь" wide>
+        {entriesQ.loading ? (
+          <div className="flex justify-center py-10"><Spinner /></div>
+        ) : (
+          <>
+            <MonthCalendar year={ym.y} month={ym.m} onChange={(y, m) => setYm({ y, m })} byDate={dayAgg} onDayClick={setDay} />
+            {day && (
+              <div className="mt-5">
+                <p className="mb-2 text-[15px] font-bold">{capitalize(formatLong(fromKey(day)))}</p>
+                {(byDate.get(day) ?? []).length ? (
+                  <div className="flex flex-col gap-2">
+                    {(byDate.get(day) ?? []).map((e) => (
+                      <div key={e.id} className="rounded-[22px] bg-surface-2 p-1"><EntryCard entry={e} highlight /></div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted">В этот день отметок нет</p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </Sheet>
 
-      <Sheet open={menu} onClose={() => setMenu(false)} title={p.display_name}>
-        <div className="flex flex-col gap-2 pb-2">
-          <button
-            disabled={busy}
-            onClick={() => act(() => setMuted(session!.user.id, p.id, !p.is_muted), p.is_muted ? "Уведомления включены" : "Уведомления отключены")}
-            className="flex h-14 items-center gap-3 rounded-2xl bg-surface-2 px-4 text-left font-semibold"
-          >
-            {p.is_muted ? <Bell className="size-5" /> : <BellOff className="size-5" />}
-            {p.is_muted ? "Включить уведомления от друга" : "Отключить уведомления от друга"}
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => act(() => removeFriendship(p.friendship_id!), "Удалён из друзей")}
-            className="flex h-14 items-center gap-3 rounded-2xl bg-danger-soft px-4 text-left font-semibold text-danger"
-          >
-            <UserMinus className="size-5" /> Удалить из друзей
-          </button>
-        </div>
+      <Sheet open={panel === "stats"} onClose={() => setPanel(null)} title={`Статистика: ${p.display_name}`} wide>
+        {entriesQ.loading ? <div className="flex justify-center py-10"><Spinner /></div> : <StatsView entries={entries} showInsights={false} />}
+      </Sheet>
+
+      <Sheet
+        open={confirmRemove}
+        onClose={() => setConfirmRemove(false)}
+        title="Удалить из друзей?"
+        footer={
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setConfirmRemove(false)}>Отмена</Button>
+            <Button variant="danger" className="flex-1" loading={busy} onClick={() => act(() => removeFriendship(p.friendship_id!), "Удалён из друзей")}>
+              Удалить
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-text-2">{p.display_name} больше не будет видеть твоё настроение как друг. Добавить снова можно через поиск.</p>
       </Sheet>
     </>
   );

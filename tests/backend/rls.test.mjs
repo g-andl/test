@@ -51,8 +51,8 @@ test('профиль и настройки создаются при регис�
   assert.equal(p.username, masha.username);
   assert.equal(p.timezone, 'Asia/Novosibirsk');
   const { data: s } = await masha.c.from('privacy_settings').select('*').single();
-  assert.equal(s.notes_visibility, false, 'заметки приватны по умолчанию');
-  assert.equal(s.photos_visibility, false, 'фото приватны по умолчанию');
+  assert.equal(s.public_visibility, 'all', 'для остальных по умолчанию открыто');
+  assert.equal(s.photos_public, false, 'фото для остальных скрыто по умолчанию');
 });
 
 test('anon не видит данные, но может проверить username', async () => {
@@ -64,106 +64,114 @@ test('anon не видит данные, но может проверить user
   assert.equal(free2, true);
 });
 
-test('одна запись в день, чужие записи недоступны напрямую', async () => {
-  const row = {
-    user_id: masha.id, entry_date: today(), mood_value: 5,
-    note: 'секретная заметка', mood_time: new Date().toISOString(), day_part: 'evening',
-  };
-  const { data, error } = await masha.c.from('mood_entries').insert(row).select().single();
-  assert.ifError(error);
-  assert.equal(data.mood_label, 'Отлично');
-  const dup = await masha.c.from('mood_entries').insert(row);
-  assert.ok(dup.error, 'вторая запись за день запрещена');
+const row = (uid, value, hour, note = null) => {
+  const t = new Date(); t.setUTCHours(hour, 0, 0, 0);
+  return { user_id: uid, entry_date: today(), mood_value: value, note, mood_time: t.toISOString(), day_part: hour < 12 ? 'morning' : 'evening' };
+};
+
+test('несколько отметок в день, чужие записи напрямую недоступны', async () => {
+  const a = await masha.c.from('mood_entries').insert(row(masha.id, 4, 2, 'утро')).select().single();
+  assert.ifError(a.error);
+  const b = await masha.c.from('mood_entries').insert(row(masha.id, 2, 13, 'секретная заметка')).select().single();
+  assert.ifError(b.error, 'вторая отметка за день разрешена');
+  assert.equal(b.data.mood_label, 'Грустно');
 
   const { data: seen } = await dima.c.from('mood_entries').select('*').eq('user_id', masha.id);
-  assert.equal(seen.length, 0, 'не друг не видит записи');
-
-  const fake = await dima.c.from('mood_entries').insert({ ...row, user_id: masha.id, entry_date: '2020-01-01' });
+  assert.equal(seen.length, 0, 'прямой доступ к таблице только у владельца');
+  const fake = await dima.c.from('mood_entries').insert({ ...row(masha.id, 5, 3) });
   assert.ok(fake.error, 'нельзя создать запись за другого');
+});
+
+test('посторонний при «всё открыто» видит записи и заметки, но не фото', async () => {
+  const { data } = await stranger.c.rpc('get_user_entries', { p_user: masha.id, p_from: '2000-01-01', p_to: '2100-01-01' });
+  assert.equal(data.length, 2);
+  assert.ok(data.some((e) => e.note === 'секретная заметка'));
+  const { data: prof } = await stranger.c.rpc('get_user_profile', { p_username: masha.username });
+  assert.equal(prof.access, 'all');
+  assert.equal(prof.can_see_photos, false);
+  assert.equal(prof.latest.mood_value, 2, 'последняя — вечерняя');
+});
+
+test('«только последнее» и «ничего» для посторонних', async () => {
+  await masha.c.from('privacy_settings').update({ public_visibility: 'latest' }).eq('user_id', masha.id);
+  let { data } = await stranger.c.rpc('get_user_entries', { p_user: masha.id, p_from: '2000-01-01', p_to: '2100-01-01' });
+  assert.equal(data.length, 1);
+  assert.equal(data[0].mood_value, 2);
+  await masha.c.from('privacy_settings').update({ public_visibility: 'none' }).eq('user_id', masha.id);
+  ({ data } = await stranger.c.rpc('get_user_entries', { p_user: masha.id, p_from: '2000-01-01', p_to: '2100-01-01' }));
+  assert.equal(data.length, 0);
+  const { data: prof } = await stranger.c.rpc('get_user_profile', { p_username: masha.username });
+  assert.equal(prof.access, 'none');
+  assert.equal(prof.latest, null);
+  const bad = await masha.c.from('privacy_settings').update({ public_visibility: 'hacked' }).eq('user_id', masha.id);
+  assert.ok(bad.error, 'недопустимое значение отклоняется');
+});
+
+test('отклонённая заявка уведомляет отправителя, отменённая — нет', async () => {
+  await stranger.c.rpc('send_friend_request', { p_addressee: masha.id });
+  const { data: fr } = await masha.c.from('friendships').select('id').eq('requester_id', stranger.id).single();
+  await masha.c.from('friendships').delete().eq('id', fr.id);
+  const { data: n } = await stranger.c.from('notifications').select('*').eq('type', 'request_declined');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].actor_id, masha.id);
+
+  await stranger.c.rpc('send_friend_request', { p_addressee: dima.id });
+  const { data: fr2 } = await stranger.c.from('friendships').select('id').eq('addressee_id', dima.id).single();
+  await stranger.c.from('friendships').delete().eq('id', fr2.id);
+  const { data: n2 } = await dima.c.from('notifications').select('*').eq('type', 'request_declined');
+  assert.equal(n2.length, 0, 'отмена своей заявки никого не уведомляет');
 });
 
 test('заявка в друзья, уведомления и принятие', async () => {
   const { data: st, error } = await dima.c.rpc('send_friend_request', { p_addressee: masha.id });
   assert.ifError(error);
   assert.equal(st, 'pending');
-
   const { data: n } = await masha.c.from('notifications').select('*').eq('type', 'friend_request');
   assert.equal(n.length, 1);
   assert.equal(n[0].actor_id, dima.id);
 
-  // Отправитель не может сам принять свою заявку
-  const { data: fr } = await dima.c.from('friendships').select('*').single();
+  const { data: fr } = await dima.c.from('friendships').select('*').eq('addressee_id', masha.id).single();
   const self = await dima.c.from('friendships').update({ status: 'accepted' }).eq('id', fr.id).select();
-  assert.equal((self.data ?? []).length, 0);
-
+  assert.equal((self.data ?? []).length, 0, 'отправитель не может сам принять');
   const acc = await masha.c.from('friendships').update({ status: 'accepted' }).eq('id', fr.id).select();
   assert.ifError(acc.error);
   assert.equal(acc.data.length, 1);
-
   const { data: n2 } = await dima.c.from('notifications').select('*').eq('type', 'request_accepted');
   assert.equal(n2.length, 1);
 });
 
-test('друг видит настроение, но не видит заметку по умолчанию', async () => {
+test('друг видит всё даже при закрытом профиле', async () => {
+  // у Маши сейчас public_visibility = none
+  const { data } = await dima.c.rpc('get_user_entries', { p_user: masha.id, p_from: '2000-01-01', p_to: '2100-01-01' });
+  assert.equal(data.length, 2);
+  const { data: prof } = await dima.c.rpc('get_user_profile', { p_username: masha.username });
+  assert.equal(prof.access, 'friend');
+  assert.equal(prof.can_see_photos, true);
   const { data: friends } = await dima.c.rpc('get_friends');
-  assert.equal(friends.length, 1);
-  assert.equal(friends[0].mood_value, 5);
-
-  const { data: entries } = await dima.c.rpc('get_friend_entries', {
-    p_friend: masha.id, p_from: '2000-01-01', p_to: '2100-01-01',
-  });
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0].note, null, 'заметка скрыта');
-
-  await masha.c.from('privacy_settings').update({ notes_visibility: true }).eq('user_id', masha.id);
-  const { data: e2 } = await dima.c.rpc('get_friend_entries', {
-    p_friend: masha.id, p_from: '2000-01-01', p_to: '2100-01-01',
-  });
-  assert.equal(e2[0].note, 'секретная заметка');
+  assert.equal(friends[0].mood_value, 2);
 });
 
-test('изменение настроения уведомляет друга', async () => {
-  await masha.c.from('mood_entries').update({ mood_value: 2 }).eq('entry_date', today());
-  const { data } = await dima.c.from('notifications').select('*').eq('type', 'friend_mood_updated');
-  assert.equal(data.length, 1);
-  assert.equal(data[0].data.mood_value, 2);
-  assert.equal(data[0].data.note, undefined, 'уведомление не раскрывает заметку');
+test('новая отметка и изменение уведомляют друга без заметки', async () => {
+  await dima.c.from('notifications').delete().eq('user_id', dima.id);
+  const ins = await masha.c.from('mood_entries').insert(row(masha.id, 5, 15)).select().single();
+  await masha.c.from('mood_entries').update({ mood_value: 3 }).eq('id', ins.data.id);
+  const { data } = await dima.c.from('notifications').select('*').in('type', ['friend_mood', 'friend_mood_updated']);
+  assert.equal(data.length, 1, 'непрочитанные за день не копятся');
+  assert.equal(data[0].type, 'friend_mood_updated');
+  assert.equal(data[0].data.note, undefined);
 });
 
 test('отключение уведомлений от друга', async () => {
   await dima.c.from('muted_friends').insert({ user_id: dima.id, muted_id: masha.id });
   await dima.c.from('notifications').delete().eq('user_id', dima.id);
-  await masha.c.from('mood_entries').update({ mood_value: 4 }).eq('entry_date', today());
+  await masha.c.from('mood_entries').insert(row(masha.id, 4, 16));
   const { data } = await dima.c.from('notifications').select('*');
   assert.equal(data.length, 0);
   await dima.c.from('muted_friends').delete().eq('muted_id', masha.id);
 });
 
-test('закрытый профиль скрывает всё', async () => {
-  await masha.c.from('privacy_settings').update({ profile_visibility: 'private' }).eq('user_id', masha.id);
-  const { data: entries } = await dima.c.rpc('get_friend_entries', {
-    p_friend: masha.id, p_from: '2000-01-01', p_to: '2100-01-01',
-  });
-  assert.equal(entries.length, 0);
-  const { data: friends } = await dima.c.rpc('get_friends');
-  assert.equal(friends[0].mood_value, null);
-  const { data: prof } = await dima.c.rpc('get_user_profile', { p_username: masha.username });
-  assert.equal(prof.can_see_calendar, false);
-  assert.equal(prof.latest, null);
-  await masha.c.from('privacy_settings').update({ profile_visibility: 'friends' }).eq('user_id', masha.id);
-});
-
-test('посторонний не видит историю', async () => {
-  const { data } = await stranger.c.rpc('get_friend_entries', {
-    p_friend: masha.id, p_from: '2000-01-01', p_to: '2100-01-01',
-  });
-  assert.equal(data.length, 0);
-  const { data: prof } = await stranger.c.rpc('get_user_profile', { p_username: masha.username });
-  assert.equal(prof.relation, 'none');
-  assert.equal(prof.latest, null);
-});
-
-test('фото: приватно, друг видит только при разрешении', async () => {
+test('фото: друг видит всегда, посторонний — только если разрешено', async () => {
+  await masha.c.from('privacy_settings').update({ public_visibility: 'all' }).eq('user_id', masha.id);
   const path = `${masha.id}/${run}.png`;
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
@@ -171,17 +179,16 @@ test('фото: приватно, друг видит только при раз
   );
   const up = await masha.c.storage.from('mood-photos').upload(path, png, { contentType: 'image/png' });
   assert.ifError(up.error);
-  await masha.c.from('mood_entries').update({ photo_path: path }).eq('entry_date', today());
+  const { data: last } = await masha.c.from('mood_entries').select('id').order('mood_time', { ascending: false }).limit(1).single();
+  await masha.c.from('mood_entries').update({ photo_path: path }).eq('id', last.id);
 
-  const denied = await dima.c.storage.from('mood-photos').createSignedUrl(path, 60);
-  assert.ok(denied.error, 'фото скрыто по умолчанию');
-
-  await masha.c.from('privacy_settings').update({ photos_visibility: true }).eq('user_id', masha.id);
-  const ok = await dima.c.storage.from('mood-photos').createSignedUrl(path, 60);
-  assert.ifError(ok.error);
-
-  const strangerTry = await stranger.c.storage.from('mood-photos').createSignedUrl(path, 60);
-  assert.ok(strangerTry.error, 'посторонний не видит фото');
+  const friendOk = await dima.c.storage.from('mood-photos').createSignedUrl(path, 60);
+  assert.ifError(friendOk.error);
+  const denied = await stranger.c.storage.from('mood-photos').createSignedUrl(path, 60);
+  assert.ok(denied.error, 'посторонний не видит фото по умолчанию');
+  await masha.c.from('privacy_settings').update({ photos_public: true }).eq('user_id', masha.id);
+  const ok = await stranger.c.storage.from('mood-photos').createSignedUrl(path, 60);
+  assert.ifError(ok.error, 'после разрешения — видит');
 
   const foreignUpload = await dima.c.storage.from('mood-photos').upload(`${masha.id}/x.png`, png, { contentType: 'image/png' });
   assert.ok(foreignUpload.error, 'нельзя загрузить в чужую папку');

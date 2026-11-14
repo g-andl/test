@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarSearch, SearchX, BookOpen } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented, Chip } from "@/components/ui/Segmented";
@@ -22,7 +22,7 @@ type Mode = "feed" | "calendar";
 type CalMode = "month" | "year";
 
 export default function DiaryPage() {
-  const { entries, byDate, loading, error, refetch } = useMyEntries();
+  const { entries, byDate, dayAgg, loading, error, refetch } = useMyEntries();
   const openMood = useMoodSheet();
   const now = new Date();
   const [mode, setMode] = useState<Mode>("feed");
@@ -33,7 +33,24 @@ export default function DiaryPage() {
   const [day, setDay] = useState<string | null>(null);
 
   const filtered = useMemo(() => (filter ? entries.filter((e) => e.mood_value === filter) : entries), [entries, filter]);
+  // Лента показывается по дням: ограничиваем число дней, а не отметок
+  const shownDays = useMemo(() => [...new Set(filtered.map((e) => e.entry_date))].slice(0, limit), [filtered, limit]);
+  const shown = useMemo(() => {
+    const set = new Set(shownDays);
+    return filtered.filter((e) => set.has(e.entry_date));
+  }, [filtered, shownDays]);
+  const totalDays = useMemo(() => new Set(filtered.map((e) => e.entry_date)).size, [filtered]);
   const minYear = entries.length ? fromKey(entries[entries.length - 1].entry_date).getFullYear() : now.getFullYear();
+
+  // Переход из полосы недели на главной: /diary/?day=YYYY-MM-DD
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get("day");
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- день берётся из адреса страницы
+      setDay(d);
+      history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   function jumpTo(key: string) {
     if (!key) return;
@@ -101,8 +118,8 @@ export default function DiaryPage() {
           />
         ) : (
           <div className="lg:max-w-2xl">
-            <Timeline entries={filtered.slice(0, limit)} onOpen={(e) => setDay(e.entry_date)} />
-            {filtered.length > limit && (
+            <Timeline entries={shown} own />
+            {totalDays > limit && (
               <Button variant="secondary" block className="mt-5" onClick={() => setLimit((l) => l + 30)}>
                 Показать ещё
               </Button>
@@ -128,7 +145,7 @@ export default function DiaryPage() {
               month={ym.m}
               minYear={minYear}
               onChange={(y, m) => setYm({ y, m })}
-              byDate={byDate}
+              byDate={dayAgg}
               filter={filter}
               onDayClick={setDay}
             />
@@ -136,7 +153,7 @@ export default function DiaryPage() {
             <YearHeatmap
               year={ym.y}
               onYear={(y) => setYm((s) => ({ ...s, y }))}
-              byDate={byDate}
+              byDate={dayAgg}
               filter={filter}
               onDayClick={setDay}
               onMonthClick={(m) => {
@@ -150,9 +167,10 @@ export default function DiaryPage() {
 
       <DaySheet
         date={day}
-        entry={day ? byDate.get(day) : null}
+        entries={day ? (byDate.get(day) ?? []) : []}
+        own
         onClose={() => setDay(null)}
-        onEdit={(d) => {
+        onAdd={(d) => {
           setDay(null);
           openMood({ date: d });
         }}

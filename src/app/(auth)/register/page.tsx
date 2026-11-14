@@ -9,6 +9,22 @@ import { humanError } from "@/lib/errors";
 import { usernameAvailable } from "@/lib/api";
 import { browserTimezone } from "@/lib/dates";
 import { appUrl } from "@/lib/paths";
+import { LEGAL_VERSION } from "@/lib/legal";
+
+/** Флажок согласия: большая зона нажатия, ссылки внутри текста открываются отдельно */
+function ConsentBox({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
+  return (
+    <label className="flex cursor-pointer gap-3 rounded-xl py-2 text-[13px] leading-snug text-text-2 [&_a]:font-semibold [&_a]:text-accent">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 size-5 shrink-0 cursor-pointer accent-[var(--accent)]"
+      />
+      <span>{children}</span>
+    </label>
+  );
+}
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -21,6 +37,10 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  // Три отдельных согласия — по требованиям 152-ФЗ; изначально не отмечены
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePd, setAgreePd] = useState(false);
+  const [agreeDist, setAgreeDist] = useState(false);
 
   // Проверка имени пользователя «на лету»
   useEffect(() => {
@@ -50,7 +70,8 @@ export default function RegisterPage() {
   const usernameError =
     usernameState === "taken" ? "Это имя уже занято" : usernameState === "invalid" ? "Только латиница, цифры и _, от 3 до 24 символов" : null;
 
-  const valid = name.trim() && usernameState === "free" && email.includes("@") && password.length >= 8;
+  const valid =
+    name.trim() && usernameState === "free" && email.includes("@") && password.length >= 8 && agreeTerms && agreePd && agreeDist;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,7 +83,13 @@ export default function RegisterPage() {
       password,
       options: {
         emailRedirectTo: appUrl("/confirm/"),
-        data: { username: username.trim(), display_name: name.trim(), timezone: browserTimezone() },
+        data: {
+          username: username.trim(),
+          display_name: name.trim(),
+          timezone: browserTimezone(),
+          // Факт и время согласий хранятся в аккаунте
+          consents: { version: LEGAL_VERSION, at: new Date().toISOString(), terms: true, personal_data: true, distribution: true },
+        },
       },
     });
     setLoading(false);
@@ -117,6 +144,33 @@ export default function RegisterPage() {
           hint="Не короче 8 символов"
           error={password && password.length < 8 ? "Не короче 8 символов" : null}
         />
+        <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 px-3 py-2">
+          {/* Одно касание отмечает все три согласия, но каждое остаётся отдельным — как требует закон */}
+          <label className="flex cursor-pointer items-center gap-3 border-b border-line py-2.5 text-[15px] font-semibold">
+            <input
+              type="checkbox"
+              checked={agreeTerms && agreePd && agreeDist}
+              onChange={(e) => {
+                setAgreeTerms(e.target.checked);
+                setAgreePd(e.target.checked);
+                setAgreeDist(e.target.checked);
+              }}
+              className="size-5 shrink-0 cursor-pointer accent-[var(--accent)]"
+            />
+            Принимаю все условия
+          </label>
+          <ConsentBox checked={agreeTerms} onChange={setAgreeTerms}>
+            Принимаю <Link href="/legal/terms/" target="_blank">Пользовательское соглашение</Link> и ознакомлен(а) с{" "}
+            <Link href="/legal/privacy/" target="_blank">Политикой обработки персональных данных</Link>
+          </ConsentBox>
+          <ConsentBox checked={agreePd} onChange={setAgreePd}>
+            Даю <Link href="/legal/consent/" target="_blank">согласие на обработку персональных данных</Link>
+          </ConsentBox>
+          <ConsentBox checked={agreeDist} onChange={setAgreeDist}>
+            Даю <Link href="/legal/distribution/" target="_blank">согласие на распространение</Link> имени, имени пользователя и
+            аватара среди пользователей; остальное — по моим настройкам приватности
+          </ConsentBox>
+        </div>
         {error && (
           <p role="alert" className="rounded-2xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
             {error}
@@ -125,7 +179,7 @@ export default function RegisterPage() {
         <Button type="submit" size="lg" block loading={loading} disabled={!valid}>
           Зарегистрироваться
         </Button>
-        <p className="text-center text-xs text-muted">Настрой не является медицинским приложением и не ставит диагнозов.</p>
+        <p className="text-center text-xs text-muted">Сервис бесплатный. Настрой не является медицинским приложением и не ставит диагнозов.</p>
       </form>
       <p className="mt-6 text-center text-[15px] text-text-2">
         Уже есть аккаунт?{" "}

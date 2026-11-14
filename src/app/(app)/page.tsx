@@ -7,6 +7,8 @@ import { WeekStrip } from "@/components/home/WeekStrip";
 import { TodayCard } from "@/components/home/TodayCard";
 import { FriendsMoods } from "@/components/home/FriendsMoods";
 import { MonthSummary } from "@/components/home/MonthSummary";
+import { FriendsActivity } from "@/components/home/FriendsActivity";
+import { useRouter } from "next/navigation";
 import { Skeleton, ErrorState } from "@/components/ui/States";
 import { useMyEntries } from "@/hooks/data";
 import { capitalize, formatLong, todayKey } from "@/lib/dates";
@@ -23,8 +25,9 @@ function greeting() {
 export default function HomePage() {
   const { profile } = useAuth();
   const openMood = useMoodSheet();
-  const { entries, byDate, loading, error, refetch } = useMyEntries();
-  const today = byDate.get(todayKey());
+  const router = useRouter();
+  const { entries, byDate, dayAgg, loading, error, refetch } = useMyEntries();
+  const today = byDate.get(todayKey()) ?? [];
   const firstName = profile?.display_name.split(" ")[0] ?? "";
 
   // Быстрое действие с иконки приложения: «Отметить настроение»
@@ -40,7 +43,7 @@ export default function HomePage() {
   ) : error ? (
     <ErrorState text={humanError(error)} onRetry={refetch} />
   ) : (
-    <TodayCard entry={today} onOpen={(mood) => openMood({ mood })} />
+    <TodayCard entries={today} onOpen={(mood) => openMood({ mood })} />
   );
   const monthBlock = loading ? <Skeleton className="h-40" /> : <MonthSummary entries={entries} />;
 
@@ -50,7 +53,7 @@ export default function HomePage() {
       {/* Телефон: одна колонка — сегодня, неделя, друзья, месяц */}
       <div className="flex flex-col gap-5 lg:hidden">
         {todayBlock}
-        <WeekStrip byDate={byDate} onPick={(date) => openMood({ date })} />
+        <WeekStrip byDate={dayAgg} onPick={(date) => router.push(`/diary/?day=${date}`)} />
         <FriendsMoods />
         {monthBlock}
       </div>
@@ -61,8 +64,9 @@ export default function HomePage() {
           <FriendsMoods />
         </div>
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-5">
-          <WeekStrip byDate={byDate} onPick={(date) => openMood({ date })} />
+          <WeekStrip byDate={dayAgg} onPick={(date) => router.push(`/diary/?day=${date}`)} />
           {monthBlock}
+          <FriendsActivity />
         </div>
       </div>
     </>

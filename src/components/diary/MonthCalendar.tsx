@@ -2,7 +2,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { monthGrid, toKey, todayKey, WEEKDAYS_SHORT, MONTHS } from "@/lib/dates";
 import { moodOf } from "@/lib/mood";
-import type { EntryLite, MoodValue } from "@/lib/types";
+import type { DayAgg, MoodValue } from "@/lib/types";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Календарь месяца: неделя с понедельника, цвет и эмодзи по настроению */
@@ -18,7 +18,7 @@ export function MonthCalendar({
   year: number;
   month: number;
   onChange: (y: number, m: number) => void;
-  byDate: Map<string, EntryLite>;
+  byDate: Map<string, DayAgg>;
   filter?: MoodValue | null;
   onDayClick?: (key: string) => void;
   minYear?: number;
@@ -90,8 +90,8 @@ export function MonthCalendar({
               if (!d) return <span key={di} role="gridcell" />;
               const k = toKey(d);
               const e = byDate.get(k);
-              const m = e ? moodOf(e.mood_value) : null;
-              const dim = filter && e && e.mood_value !== filter;
+              const m = e ? moodOf(e.value) : null;
+              const dim = filter && e && m!.value !== filter;
               const isToday = k === today;
               const future = k > today;
               return (
@@ -107,6 +107,9 @@ export function MonthCalendar({
                   <span className={`absolute left-1.5 top-1 text-[10px] font-semibold leading-none ${isToday ? "text-accent" : "text-muted"} min-[400px]:text-[11px]`}>
                     {d.getDate()}
                   </span>
+                  {e && e.count > 1 && !dim && (
+                    <span className="absolute right-1 top-1 text-[9px] font-bold leading-none text-muted">×{e.count}</span>
+                  )}
                   {m && !dim ? (
                     <MoodEmoji value={m.value} decorative size={24} className="mt-1.5 !size-[58%] max-w-8" />
                   ) : null}

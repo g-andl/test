@@ -28,6 +28,8 @@ function message(type: string, name: string, mood?: number) {
       return { title: "Новая заявка в друзья", body: `${name} хочет добавить тебя в друзья` };
     case "request_accepted":
       return { title: "Заявка принята", body: `${name} теперь в твоих друзьях` };
+    case "request_declined":
+      return { title: "Заявка отклонена", body: `${name} отклонил(а) твою заявку в друзья` };
     case "new_friend":
       return { title: "Новый друг", body: `${name} теперь в твоих друзьях` };
     case "friend_mood":

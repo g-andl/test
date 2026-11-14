@@ -89,14 +89,12 @@ try {
   await page.getByText("✓ Имя свободно").waitFor();
   await page.getByLabel("Почта").fill(email);
   await page.getByLabel("Пароль", { exact: true }).fill("Passw0rd!x");
-  await page.screenshot({ path: `${SHOTS}/02-register-390.png` });
+  // Без согласий кнопка неактивна
+  assert.equal(await page.getByRole("button", { name: "Зарегистрироваться" }).isDisabled(), true);
+  await page.getByLabel("Принимаю все условия").check();
+  await page.screenshot({ path: `${SHOTS}/02-register-390.png`, fullPage: true });
   await page.getByRole("button", { name: "Зарегистрироваться" }).click();
-  await page.getByText("Проверь почту").waitFor();
-  log("регистрация: письмо отправлено");
-
-  // ---------- Подтверждение почты ----------
-  const link = await confirmLink(email);
-  await page.goto(link);
+  // Подтверждение почты отключено — сразу знакомство с сервисом
   await page.waitForURL(/\/onboarding\//, { timeout: 15000 });
   await page.screenshot({ path: `${SHOTS}/03-onboarding-390.png` });
   await page.getByRole("button", { name: "Дальше" }).click();
@@ -105,7 +103,8 @@ try {
   await page.waitForURL(`${BASE}/`);
   await page.getByText("Как ты сегодня?").first().waitFor();
   await page.screenshot({ path: `${SHOTS}/04-home-empty-390.png` });
-  log("подтверждение и знакомство пройдены");
+  log("регистрация с согласиями и знакомство пройдены");
+  void confirmLink;
 
   // ---------- Отметка настроения ----------
   await page.getByRole("button", { name: "Хорошо" }).first().click();
@@ -119,22 +118,36 @@ try {
   await dialog.getByRole("button", { name: "Отметить настроение" }).click();
   await page.getByText("Настроение отмечено").waitFor();
   await dialog.waitFor({ state: "detached" });
-  await page.getByRole("heading", { name: "Хорошо" }).waitFor();
+  await page.getByRole("button", { name: "Изменить отметку" }).waitFor();
   await page.screenshot({ path: `${SHOTS}/06-home-marked-390.png`, fullPage: true });
   const { data: me } = await admin.from("profiles").select("id").eq("username", `george_${run}`).single();
   const { data: saved } = await admin.from("mood_entries").select("*").eq("user_id", me.id).single();
+  const { data: meta } = await admin.auth.admin.getUserById(me.id);
+  assert.equal(meta.user.user_metadata.consents.personal_data, true, "согласие сохранено в аккаунте");
   assert.equal(saved.mood_value, 4);
   assert.equal(saved.day_part, "evening");
   assert.ok(saved.photo_path, "фото сохранено");
   log("настроение сохранено в базе (с фото и заметкой)");
 
   // Редактирование
-  await page.getByRole("button", { name: "Изменить запись" }).click();
+  await page.getByRole("button", { name: "Изменить отметку" }).click();
   await dialog.getByRole("radio", { name: /Отлично/ }).click();
   await dialog.getByRole("button", { name: "Сохранить" }).click();
-  await page.getByText("Запись обновлена").waitFor();
-  await page.getByRole("heading", { name: "Отлично" }).waitFor();
+  await page.getByText("Отметка обновлена").waitFor();
+  await dialog.waitFor({ state: "detached" });
   log("редактирование работает");
+
+  // Вторая отметка в тот же день — другое время суток
+  await page.getByRole("button", { name: "Плохо" }).first().click();
+  await dialog.getByRole("button", { name: "Утром" }).click();
+  await dialog.getByRole("button", { name: "Отметить настроение" }).click();
+  await page.getByText("Настроение отмечено").waitFor();
+  await dialog.waitFor({ state: "detached" });
+  const { data: two } = await admin.from("mood_entries").select("mood_value, day_part").eq("user_id", me.id).order("mood_time");
+  assert.deepEqual(two.map((e) => [e.mood_value, e.day_part]), [[1, "morning"], [5, "evening"]]);
+  assert.equal(await page.getByRole("button", { name: "Изменить отметку" }).count(), 2);
+  log("две отметки в один день (утро и вечер)");
+  await page.screenshot({ path: `${SHOTS}/06b-home-two-390.png`, fullPage: true });
 
   // ---------- Друзья ----------
   await page.getByRole("link", { name: "Друзья" }).first().click();
@@ -166,20 +179,34 @@ try {
   // Профиль друга: календарь и статистика, заметки скрыты по умолчанию
   await page.getByText(/отметил\(а\) настроение/).click();
   await page.waitForURL(/\/user\//);
-  await page.getByRole("heading", { name: "Календарь" }).waitFor();
-  await page.waitForTimeout(800);
+  // Настроение друга открывается только по кнопке
+  await page.getByRole("button", { name: /Смотреть/ }).click();
+  await page.getByText("Последние отметки").waitFor();
+  await page.waitForTimeout(600);
   await page.screenshot({ path: `${SHOTS}/09-friend-390.png`, fullPage: true });
-  log("профиль друга: календарь и статистика");
+  await page.getByRole("button", { name: "Календарь" }).click();
+  await page.getByRole("dialog").getByRole("grid").waitFor();
+  await page.screenshot({ path: `${SHOTS}/09b-friend-calendar-390.png` });
+  await page.getByRole("button", { name: "Закрыть" }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Статистика" }).click();
+  await page.getByRole("dialog").getByText("Распределение").waitFor();
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: `${SHOTS}/09c-friend-stats-390.png` });
+  await page.getByRole("button", { name: "Закрыть" }).click();
+  log("профиль друга: карточки, календарь и статистика по кнопкам");
 
   // Главная с друзьями
   await page.getByRole("link", { name: "Главная" }).click();
-  await page.getByText("Как дела у друзей?").waitFor();
+  await page.getByRole("heading", { name: "Как дела у друзей?" }).waitFor();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${SHOTS}/10-home-friends-390.png`, fullPage: true });
 
   // Дневник: лента и календарь
   await page.getByRole("link", { name: "Дневник" }).click();
-  await page.getByText("Хороший день, закончил проект").waitFor();
+  await page.waitForURL(/\/diary\//);
+  await page.getByRole("tab", { name: "Лента" }).waitFor();
+  await page.getByText("Хороший день, закончил проект").first().waitFor();
   await page.screenshot({ path: `${SHOTS}/11-diary-feed-390.png` });
   await page.getByRole("tab", { name: "Календарь" }).click();
   await page.screenshot({ path: `${SHOTS}/12-diary-calendar-390.png` });
@@ -195,14 +222,14 @@ try {
   await page.getByText("Тема оформления").waitFor();
   await page.screenshot({ path: `${SHOTS}/15-profile-390.png` });
   await page.getByRole("link", { name: /Приватность/ }).click();
-  await page.getByText("Что видят друзья").waitFor();
+  await page.getByText("Друзья видят всё").waitFor();
   await page.screenshot({ path: `${SHOTS}/16-privacy-390.png`, fullPage: true });
 
   // Тёмная тема
   await page.goto(`${BASE}/profile/`);
   await page.getByRole("tab", { name: /Тёмная/ }).click();
   await page.goto(`${BASE}/`);
-  await page.getByText("Как дела у друзей?").waitFor();
+  await page.getByRole("heading", { name: "Как дела у друзей?" }).waitFor();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${SHOTS}/17-home-dark-390.png`, fullPage: true });
   await page.goto(`${BASE}/stats/`);
@@ -240,7 +267,7 @@ try {
     // Подписи настроений в окне отметки не должны выходить за плашки
     if (w < 768) {
       await p.goto(`${BASE}/`);
-      await p.getByRole("button", { name: /Изменить запись|Отметить с заметкой/ }).first().click();
+      await p.getByRole("button", { name: /Изменить отметку|С заметкой/ }).first().click();
       await p.getByRole("dialog").waitFor();
       await p.waitForTimeout(500);
       const bad = await p.evaluate(() =>
@@ -271,13 +298,13 @@ try {
 
   // ---------- Удаление записи ----------
   await page.goto(`${BASE}/`);
-  await page.getByRole("button", { name: "Изменить запись" }).click();
-  await dialog.getByRole("button", { name: "Удалить запись" }).click();
-  await dialog.getByRole("button", { name: "Удалить запись" }).click();
-  await page.getByText("Запись удалена").waitFor();
+  // Удаление прямо из списка: корзина → «Удалить?»
+  await page.getByRole("button", { name: "Удалить отметку" }).first().click();
+  await page.getByRole("button", { name: "Удалить?" }).click();
+  await page.getByText("Отметка удалена").waitFor();
   const { data: left } = await admin.from("mood_entries").select("id").eq("id", saved.id);
-  assert.equal(left.length, 0);
-  log("удаление записи работает");
+  assert.equal(left.length, 0, "удалена именно вечерняя отметка");
+  log("удаление в два касания работает");
 
   // ---------- Выход ----------
   await page.getByRole("link", { name: "Профиль" }).click();

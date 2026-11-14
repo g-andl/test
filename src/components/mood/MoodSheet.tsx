@@ -121,7 +121,7 @@ export function MoodSheet({
       try { localStorage.removeItem(draftKey(date)); } catch {}
       invalidate(keys.entries(session.user.id));
       if (existing?.photo_path) invalidate(keys.photo(existing.photo_path));
-      toast(existing ? "Запись обновлена" : "Настроение отмечено");
+      toast(existing ? "Отметка обновлена" : "Настроение отмечено");
       onClose();
     } catch (e) {
       toast(humanError(e), "error");
@@ -136,7 +136,7 @@ export function MoodSheet({
     try {
       await deleteEntry(existing);
       invalidate(keys.entries(session.user.id));
-      toast("Запись удалена");
+      toast("Отметка удалена");
       onClose();
     } catch (e) {
       toast(humanError(e), "error");
@@ -171,7 +171,7 @@ export function MoodSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={existing ? "Изменить запись" : isToday ? "Как ты сегодня?" : formatRelativeDay(date)}
+      title={existing ? "Изменить отметку" : isToday ? "Как ты сейчас?" : `Отметка: ${formatRelativeDay(date).toLowerCase()}`}
       footer={
         confirmDelete ? (
           <div className="flex gap-2">
@@ -179,13 +179,13 @@ export function MoodSheet({
               Отмена
             </Button>
             <Button variant="danger" className="flex-1" onClick={onDelete} loading={saving}>
-              Удалить запись
+              Удалить отметку
             </Button>
           </div>
         ) : (
           <div className="flex gap-2">
             {existing && (
-              <Button variant="danger" aria-label="Удалить запись" className="w-12 !px-0" onClick={() => setConfirmDelete(true)}>
+              <Button variant="danger" aria-label="Удалить отметку" className="w-12 !px-0" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="size-5" />
               </Button>
             )}

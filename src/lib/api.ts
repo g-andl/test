@@ -22,7 +22,7 @@ export const keys = {
   privacy: "privacy",
   notifSettings: "notifSettings",
   user: (username: string) => `user:${username}`,
-  friendEntries: (id: string) => `friendEntries:${id}`,
+  userEntries: (id: string) => `userEntries:${id}`,
   photo: (path: string) => `photo:${path}`,
 };
 
@@ -50,9 +50,10 @@ export async function uploadAvatar(uid: string, file: File): Promise<string> {
 }
 
 // ---------- Записи настроения ----------
+/** Мои записи, новые сверху (в день может быть несколько отметок) */
 export async function fetchMyEntries(uid: string): Promise<MoodEntry[]> {
   return check(
-    await supabase.from("mood_entries").select("*").eq("user_id", uid).order("entry_date", { ascending: false }).limit(5000),
+    await supabase.from("mood_entries").select("*").eq("user_id", uid).order("mood_time", { ascending: false }).limit(10000),
   ) as MoodEntry[];
 }
 
@@ -153,8 +154,9 @@ export async function removeFriendship(friendshipId: string) {
 export async function fetchUserProfile(username: string): Promise<UserProfileView | null> {
   return check(await supabase.rpc("get_user_profile", { p_username: username })) as UserProfileView | null;
 }
-export async function fetchFriendEntries(friendId: string, from = "2000-01-01", to = "2100-01-01"): Promise<EntryLite[]> {
-  return (check(await supabase.rpc("get_friend_entries", { p_friend: friendId, p_from: from, p_to: to })) ?? []) as EntryLite[];
+/** Записи другого пользователя — база сама отдаёт только разрешённое */
+export async function fetchUserEntries(userId: string, from = "2000-01-01", to = "2100-01-01"): Promise<EntryLite[]> {
+  return (check(await supabase.rpc("get_user_entries", { p_user: userId, p_from: from, p_to: to })) ?? []) as EntryLite[];
 }
 export async function setMuted(myId: string, friendId: string, muted: boolean) {
   if (muted) check(await supabase.from("muted_friends").upsert({ user_id: myId, muted_id: friendId }));

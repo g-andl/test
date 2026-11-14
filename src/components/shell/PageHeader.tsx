@@ -19,7 +19,7 @@ export function PageHeader({
 }) {
   const router = useRouter();
   return (
-    <header className="mb-5 flex items-end justify-between gap-3 pt-2 lg:pt-8">
+    <header className="mb-5 flex items-end justify-between gap-3 pt-6 lg:pt-8">
       <div className="min-w-0">
         {back && (
           <button

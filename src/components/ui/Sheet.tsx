@@ -10,7 +10,9 @@ export function Sheet({
   title,
   children,
   footer,
+  wide,
 }: {
+  wide?: boolean;
   open: boolean;
   onClose: () => void;
   title?: React.ReactNode;
@@ -21,20 +23,29 @@ export function Sheet({
   const drag = useDragControls();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Блокируем прокрутку страницы и закрываем по Escape
+  // Последний onClose храним в ref: эффект ниже не должен перезапускаться
+  // при каждой перерисовке родителя (иначе фокус уходит из поля ввода после каждой буквы)
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Блокируем прокрутку страницы, закрываем по Escape, фокус — один раз при открытии
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     window.addEventListener("keydown", onKey);
-    const t = setTimeout(() => panelRef.current?.focus(), 50);
+    const t = setTimeout(() => {
+      if (!panelRef.current?.contains(document.activeElement)) panelRef.current?.focus();
+    }, 50);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
       clearTimeout(t);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <AnimatePresence>
@@ -53,7 +64,7 @@ export function Sheet({
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}
             tabIndex={-1}
-            className="relative flex max-h-[92dvh] w-full flex-col rounded-t-[28px] bg-surface shadow-float outline-none lg:max-h-[86vh] lg:max-w-lg lg:rounded-[28px]"
+            className={`relative flex max-h-[92dvh] w-full flex-col rounded-t-[28px] bg-surface shadow-float outline-none lg:max-h-[88vh] lg:rounded-[28px] ${wide ? "lg:max-w-3xl" : "lg:max-w-lg"}`}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
