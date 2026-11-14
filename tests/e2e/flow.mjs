@@ -222,7 +222,7 @@ try {
   await page.getByText("Тема оформления").waitFor();
   await page.screenshot({ path: `${SHOTS}/15-profile-390.png` });
   await page.getByRole("link", { name: /Приватность/ }).click();
-  await page.getByText("Что видят друзья").waitFor();
+  await page.getByText("Друзья видят всё").waitFor();
   await page.screenshot({ path: `${SHOTS}/16-privacy-390.png`, fullPage: true });
 
   // Тёмная тема

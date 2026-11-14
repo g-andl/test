@@ -144,9 +144,9 @@ export default function FriendsPage() {
             ) : !friends.data?.length ? (
               <EmptyState icon={<Users />} title="Пока нет друзей" text="Найди друзей по имени пользователя в поиске выше" />
             ) : (
-              <ul className="grid gap-2 lg:grid-cols-2">
+              <ul className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                 {friends.data.map((f) => (
-                  <li key={f.id}>
+                  <li key={f.id} className="min-w-0">
                     <UserRow
                       user={f}
                       href={`/user/?u=${f.username}`}

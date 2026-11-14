@@ -78,8 +78,10 @@ export function EntryCard({
   entry,
   own,
   highlight,
+  compact,
   className = "",
 }: {
+  compact?: boolean;
   entry: EntryLite | MoodEntry;
   own?: boolean;
   highlight?: boolean;
@@ -102,7 +104,14 @@ export function EntryCard({
         {own && "user_id" in entry && <EntryActions entry={entry as MoodEntry} />}
       </div>
       {entry.note && <p className="mt-3 line-clamp-6 whitespace-pre-line text-[15px] leading-relaxed text-text-2">{entry.note}</p>}
-      {photo.data && <img src={photo.data} alt="Фото к отметке" loading="lazy" className="mt-3 max-h-72 w-full rounded-2xl object-cover" />}
+      {photo.data && (
+        <img
+          src={photo.data}
+          alt="Фото к отметке"
+          loading="lazy"
+          className={`mt-3 w-full rounded-2xl object-cover ${compact ? "h-32 max-w-xs" : "max-h-72"}`}
+        />
+      )}
     </div>
   );
 }

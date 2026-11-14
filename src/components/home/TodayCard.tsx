@@ -45,7 +45,7 @@ export function TodayCard({ entries, onOpen }: { entries: MoodEntry[]; onOpen: (
           <ul className="-mx-1 flex flex-col gap-1">
             {[...entries].reverse().map((e) => (
               <li key={e.id}>
-                <EntryCard entry={e} own className="!p-2" />
+                <EntryCard entry={e} own compact className="!p-2" />
               </li>
             ))}
           </ul>
