@@ -12,6 +12,7 @@ import { MonthCalendar } from "@/components/diary/MonthCalendar";
 import { EntryCard } from "@/components/diary/EntryCard";
 import { StatsView } from "@/components/stats/StatsView";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
+import { SupportWallCard } from "@/components/support/SupportWall";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
@@ -229,6 +230,8 @@ function UserProfile() {
             )}
           </section>
         )}
+
+        {!p.is_admin && <SupportWallCard userId={p.id} ownerName={p.display_name} />}
 
         {!p.is_admin && p.can_see_history && latest && (
           <div className="grid grid-cols-2 gap-2">

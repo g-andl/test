@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import type {
   ActivityRow, EntryLite, FriendRequest, FriendRow, MoodEntry, NotificationRow,
   NotificationSettings, PrivacySettings, Profile, UserProfileView, DayPart, MoodValue,
-  AdminUser, RecoveryRequest, BlockStatus,
+  AdminUser, RecoveryRequest, BlockStatus, SupportWall,
 } from "./types";
 import { compressImage } from "./image";
 
@@ -24,6 +24,7 @@ export const keys = {
   notifSettings: "notifSettings",
   user: (username: string) => `user:${username}`,
   userEntries: (id: string) => `userEntries:${id}`,
+  support: (id: string) => `support:${id}`,
   photo: (path: string) => `photo:${path}`,
 };
 
@@ -343,4 +344,21 @@ export async function adminBlockUser(userId: string, until: string | null, reaso
 }
 export async function adminUnblockUser(userId: string) {
   check(await supabase.rpc("admin_unblock_user", { p_user: userId }));
+}
+
+// ---------- Окно поддержки ----------
+export async function fetchSupportWall(userId: string): Promise<SupportWall> {
+  return check(await supabase.rpc("get_support_wall", { p_user: userId, p_limit: 100 })) as SupportWall;
+}
+export async function postSupportMessage(userId: string, body: string) {
+  check(await supabase.rpc("post_support_message", { p_user: userId, p_body: body }));
+}
+export async function deleteSupportMessage(id: string) {
+  check(await supabase.rpc("delete_support_message", { p_id: id }));
+}
+export async function adminEditSupportMessage(id: string, body: string) {
+  check(await supabase.rpc("admin_edit_support_message", { p_id: id, p_body: body }));
+}
+export async function adminPostSupportMessage(recipientId: string, authorUsername: string, body: string) {
+  check(await supabase.rpc("admin_post_support_message", { p_recipient: recipientId, p_author_username: authorUsername, p_body: body }));
 }

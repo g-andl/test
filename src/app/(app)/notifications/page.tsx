@@ -24,6 +24,8 @@ function notificationText(n: NotificationRow): { text: React.ReactNode; mood?: n
       return { text: <>{name} хочет добавить тебя в друзья</> };
     case "request_accepted":
       return { text: <>{name} принял(а) твою заявку в друзья</> };
+    case "support_message":
+      return { text: <>{name} оставил(а) тебе сообщение в окне поддержки</> };
     case "request_declined":
       return { text: <>{name} отклонил(а) твою заявку в друзья</> };
     case "new_friend":
@@ -52,6 +54,7 @@ export default function NotificationsPage() {
       markRead([n.id]).then(() => invalidate(keys.unread, keys.notifications)).catch(() => undefined);
     }
     if (n.type === "friend_request") router.push("/friends/");
+    else if (n.type === "support_message") router.push("/support/");
     else if (n.actor) router.push(`/user/?u=${n.actor.username}`);
   }
 

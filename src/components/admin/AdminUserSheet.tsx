@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { KeyRound, Trash2, Save, Wand2, Plus, Mail, Shield, Clock, Ban } from "lucide-react";
+import { KeyRound, Trash2, Save, Wand2, Plus, Mail, Shield, Clock, Ban, Heart, Pencil, Send } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -11,7 +11,7 @@ import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser,
+  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser,
 } from "@/lib/api";
 import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
 import { formatRelativeDay, formatTime, todayKey, combineDateTime } from "@/lib/dates";
@@ -458,6 +458,130 @@ function BlockSection({ user, onChanged }: { user: AdminUser; onChanged: () => v
   );
 }
 
+
+/** Окно поддержки пользователя: админ видит всё, правит, удаляет и добавляет сообщения от имени любого пользователя */
+function SupportSection({ user }: { user: AdminUser }) {
+  const toast = useToast();
+  const wall = useQuery(keys.support(user.id), () => fetchSupportWall(user.id));
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [author, setAuthor] = useState("");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [delId, setDelId] = useState<string | null>(null);
+  const messages = wall.data?.messages ?? [];
+
+  async function run(key: string, fn: () => Promise<void>, ok: string, after?: () => void) {
+    setBusy(key);
+    try {
+      await fn();
+      toast(ok);
+      after?.();
+      invalidate(keys.support(user.id));
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 flex items-center gap-2 font-bold"><Heart className="size-4 text-muted" /> Окно поддержки {wall.data ? `(${wall.data.total})` : ""}</h3>
+      <p className="mb-2 text-[13px] text-muted">Сообщения, которые оставили этому пользователю. Можно править, удалять и добавлять от имени другого пользователя.</p>
+
+      {wall.loading ? (
+        <div className="flex justify-center py-3"><Spinner /></div>
+      ) : !messages.length ? (
+        <p className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">Сообщений нет</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {messages.map((m) => (
+            <li key={m.id} className="rounded-[18px] bg-surface-2 p-3">
+              <p className="mb-1 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                <b className="text-sm text-text">{m.author_display_name}</b> @{m.author_username} · {fmtDateTime(m.created_at)}
+                {m.admin_created && <span className="rounded-full bg-accent-soft px-2 py-0.5 font-bold text-accent">создано админом</span>}
+                {m.admin_edited && <span className="rounded-full bg-accent-soft px-2 py-0.5 font-bold text-accent">правлено админом</span>}
+              </p>
+              {editId === m.id ? (
+                <>
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value.slice(0, 500))}
+                    rows={3}
+                    aria-label="Текст сообщения"
+                    className="w-full resize-y rounded-xl bg-surface px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditId(null)} disabled={busy === m.id}>Отмена</Button>
+                    <Button
+                      size="sm"
+                      disabled={!editText.trim() || editText.trim() === m.body}
+                      loading={busy === m.id}
+                      onClick={() => run(m.id, () => adminEditSupportMessage(m.id, editText), "Сообщение изменено", () => setEditId(null))}
+                    >
+                      <Save className="size-4" /> Сохранить
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="whitespace-pre-line break-words text-[15px] text-text-2">{m.body}</p>
+                  <div className="mt-1.5 flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => { setEditId(m.id); setEditText(m.body); }}>
+                      <Pencil className="size-4" /> Изменить
+                    </Button>
+                    {delId === m.id ? (
+                      <Button size="sm" variant="danger" loading={busy === m.id} onClick={() => run(m.id, () => deleteSupportMessage(m.id), "Сообщение удалено", () => setDelId(null))}>
+                        Точно удалить?
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="ghost" aria-label="Удалить сообщение" onClick={() => setDelId(m.id)}>
+                        <Trash2 className="size-4" /> Удалить
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3 rounded-[20px] border-2 border-dashed border-line p-3">
+        <p className="mb-2 text-sm font-bold">Добавить сообщение от имени пользователя</p>
+        <input
+          value={author}
+          onChange={(e) => setAuthor(e.target.value.toLowerCase().replace(/\s/g, ""))}
+          placeholder="Имя пользователя автора, например masha_k"
+          aria-label="Автор сообщения"
+          autoCapitalize="none"
+          className="mb-2 h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+        />
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, 500))}
+          rows={2}
+          placeholder="Текст сообщения"
+          aria-label="Текст нового сообщения"
+          className="w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+        />
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-xs text-muted">{text.length}/500</span>
+          <Button
+            size="sm"
+            disabled={!author.trim() || !text.trim()}
+            loading={busy === "new"}
+            onClick={() => run("new", () => adminPostSupportMessage(user.id, author, text), "Сообщение добавлено", () => setText(""))}
+          >
+            <Send className="size-4" /> Добавить
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** Всё о пользователе: данные, смена пароля, редактирование, отметки, удаление */
 export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
   const toast = useToast();
@@ -545,6 +669,7 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
       <ContactEmailSection user={user} onSaved={() => invalidate("admin-users")} />
       <PrivacySection userId={user.id} onSaved={() => invalidate("admin-users")} />
       <ActivitySection userId={user.id} />
+      {!user.is_admin && <SupportSection user={user} />}
 
       <section className="mt-5">
         <h3 className="mb-1 font-bold">Новый пароль</h3>
