@@ -251,7 +251,7 @@ export function MoodSheet({
       </h3>
       {isToday && (
         <div className="flex gap-2">
-          {([["now", "Сейчас"], ["exact", "Выбрать дату и время"]] as const).map(([value, label]) => (
+          {([["now", "Сейчас"], ["exact", "Дата и время"]] as const).map(([value, label]) => (
             <button
               key={value}
               onClick={() => pickChoice(value)}
