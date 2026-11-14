@@ -1,5 +1,6 @@
 "use client";
-import { Camera } from "lucide-react";
+import Link from "next/link";
+import { Camera, ChevronRight, ListOrdered } from "lucide-react";
 import { MOODS } from "@/lib/mood";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { EntryCard } from "@/components/diary/EntryCard";
@@ -41,14 +42,24 @@ export function TodayCard({ entries, onOpen }: { entries: MoodEntry[]; onOpen: (
 
       {has && (
         <div className="mt-5 border-t border-line pt-4">
-          <p className="mb-2 text-sm font-bold uppercase tracking-wider text-muted">Сегодня</p>
-          <ul className="-mx-1 flex flex-col gap-1">
-            {[...entries].reverse().map((e) => (
-              <li key={e.id}>
-                <EntryCard entry={e} own compact className="!p-2" />
-              </li>
-            ))}
-          </ul>
+          <p className="mb-2 text-sm font-bold uppercase tracking-wider text-muted">Последняя отметка</p>
+          {/* entries отсортированы по времени — последняя в конце */}
+          <div className="-mx-1">
+            <EntryCard entry={entries[entries.length - 1]} own compact className="!p-2" />
+          </div>
+          <Link
+            href={`/diary/?day=${entries[0].entry_date}`}
+            className="mt-2 flex h-12 items-center justify-between rounded-2xl bg-surface-2 px-4 text-[15px] font-semibold transition hover:bg-surface-3"
+          >
+            <span className="flex items-center gap-2">
+              <ListOrdered className="size-[18px] text-accent" />
+              Все отметки за сегодня
+            </span>
+            <span className="flex items-center gap-1 text-muted">
+              {entries.length}
+              <ChevronRight className="size-4" />
+            </span>
+          </Link>
         </div>
       )}
     </section>

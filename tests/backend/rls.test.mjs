@@ -156,9 +156,12 @@ test('новая отметка и изменение уведомляют др�
   const ins = await masha.c.from('mood_entries').insert(row(masha.id, 5, 15)).select().single();
   await masha.c.from('mood_entries').update({ mood_value: 3 }).eq('id', ins.data.id);
   const { data } = await dima.c.from('notifications').select('*').in('type', ['friend_mood', 'friend_mood_updated']);
-  assert.equal(data.length, 1, 'непрочитанные за день не копятся');
+  assert.equal(data.length, 1, 'правка той же отметки заменяет её уведомление');
   assert.equal(data[0].type, 'friend_mood_updated');
   assert.equal(data[0].data.note, undefined);
+  await masha.c.from('mood_entries').insert(row(masha.id, 1, 17));
+  const { data: d2 } = await dima.c.from('notifications').select('*').in('type', ['friend_mood', 'friend_mood_updated']);
+  assert.equal(d2.length, 2, 'каждая новая отметка — отдельное уведомление');
 });
 
 test('отключение уведомлений от друга', async () => {
