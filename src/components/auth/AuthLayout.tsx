@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
@@ -43,6 +44,9 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <Logo />
         </div>
         <div className="w-full sm:max-w-sm">{children}</div>
+        <Link href="/legal/" className="mx-auto mt-8 flex h-10 items-center text-[13px] font-semibold text-muted hover:text-text">
+          Документы и конфиденциальность
+        </Link>
       </main>
     </div>
   );

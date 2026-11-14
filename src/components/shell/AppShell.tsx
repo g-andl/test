@@ -160,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <MoodSheetProvider>
       <Sidebar />
       <div className="pt-safe lg:pl-64">
-        <main className="mx-auto w-full max-w-xl px-4 pb-[calc(var(--nav-h)+env(safe-area-inset-bottom)+96px)] min-[380px]:px-5 md:max-w-2xl lg:max-w-6xl lg:px-10 xl:px-14 lg:pb-16">
+        <main className="mx-auto w-full max-w-xl px-4 pb-[calc(var(--nav-h)+env(safe-area-inset-bottom)+28px)] min-[380px]:px-5 md:max-w-2xl lg:max-w-6xl lg:px-10 xl:px-14 lg:pb-16">
           {children}
         </main>
       </div>

@@ -1,5 +1,5 @@
 "use client";
-import { User, Shield, Bell, KeyRound, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { User, Shield, Bell, KeyRound, LogOut, Sun, Moon, Monitor, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -51,6 +51,7 @@ export default function ProfilePage() {
             <ListRow href="/settings/privacy/" icon={<Shield className="size-5" />} label="Приватность" />
             <ListRow href="/settings/notifications/" icon={<Bell className="size-5" />} label="Уведомления" />
             <ListRow href="/settings/account/" icon={<KeyRound className="size-5" />} label="Аккаунт" value="Пароль, удаление" />
+            <ListRow href="/legal/" icon={<FileText className="size-5" />} label="Документы" value="Политика, соглашение" />
           </Card>
 
           <Card>

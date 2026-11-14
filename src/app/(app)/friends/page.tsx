@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, Check, X, UserPlus, Clock3, Users, Inbox, Activity } from "lucide-react";
+import { Search, Check, X, UserPlus, UserMinus, Clock3, Users, Inbox, Activity } from "lucide-react";
+import { Sheet } from "@/components/ui/Sheet";
+import type { FriendRow } from "@/lib/types";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented } from "@/components/ui/Segmented";
 import { Button } from "@/components/ui/Button";
@@ -27,11 +29,19 @@ export default function FriendsPage() {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<FriendRow | null>(null);
 
   const friends = useFriends();
   const requests = useQuery(keys.requests, fetchRequests);
   const activity = useQuery(tab === "activity" ? keys.activity : null, fetchActivity);
   const search = useQuery(debounced.length >= 2 ? `search:${debounced}` : null, () => searchUsers(debounced, session!.user.id));
+
+  // Открыть нужную вкладку по ссылке: /friends/?tab=activity
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- вкладка берётся из адреса
+    if (t === "activity" || t === "requests") setTab(t);
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim().toLowerCase().replace(/^@/, "")), 300);
@@ -153,7 +163,19 @@ export default function FriendsPage() {
                           `@${f.username}`
                         )
                       }
-                      right={f.mood_value ? <MoodBadge value={f.mood_value} size={40} /> : undefined}
+                      right={
+                        <>
+                          {f.mood_value ? <MoodBadge value={f.mood_value} size={40} /> : null}
+                          <button
+                            onClick={() => setRemoving(f)}
+                            aria-label={`Удалить ${f.display_name} из друзей`}
+                            title="Удалить из друзей"
+                            className="flex size-10 items-center justify-center rounded-full text-muted transition hover:bg-danger-soft hover:text-danger active:scale-95"
+                          >
+                            <UserMinus className="size-[18px]" />
+                          </button>
+                        </>
+                      }
                     />
                   </li>
                 ))}
@@ -260,6 +282,35 @@ export default function FriendsPage() {
             ))}
         </>
       )}
+
+      <Sheet
+        open={!!removing}
+        onClose={() => setRemoving(null)}
+        title="Удалить из друзей?"
+        footer={
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setRemoving(null)}>
+              Отмена
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              loading={busy === removing?.id}
+              onClick={async () => {
+                if (!removing) return;
+                await act(removing.id, () => removeFriendship(removing.friendship_id), "Удалён из друзей");
+                setRemoving(null);
+              }}
+            >
+              Удалить
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-text-2">
+          {removing?.display_name} больше не будет видеть твоё настроение как друг, а ты — его. Добавить снова можно через поиск.
+        </p>
+      </Sheet>
     </>
   );
 }

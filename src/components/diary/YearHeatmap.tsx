@@ -2,7 +2,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { monthGrid, toKey, todayKey, MONTHS } from "@/lib/dates";
 import { moodOf, MOODS } from "@/lib/mood";
-import type { EntryLite, MoodValue } from "@/lib/types";
+import type { DayAgg, MoodValue } from "@/lib/types";
 
 /** Тепловая карта года: 12 мини-месяцев, без горизонтальной прокрутки */
 export function YearHeatmap({
@@ -15,7 +15,7 @@ export function YearHeatmap({
 }: {
   year: number;
   onYear: (y: number) => void;
-  byDate: Map<string, EntryLite>;
+  byDate: Map<string, DayAgg>;
   filter?: MoodValue | null;
   onDayClick?: (key: string) => void;
   onMonthClick?: (m: number) => void;
@@ -49,16 +49,16 @@ export function YearHeatmap({
                 if (!d) return <span key={i} className="aspect-square" />;
                 const k = toKey(d);
                 const e = byDate.get(k);
-                const show = e && (!filter || e.mood_value === filter);
+                const show = e && (!filter || moodOf(e.value).value === filter);
                 return (
                   <button
                     key={i}
                     onClick={() => e && onDayClick?.(k)}
                     tabIndex={e ? 0 : -1}
-                    aria-label={e ? `${d.getDate()} ${name}: ${moodOf(e.mood_value).label}` : undefined}
+                    aria-label={e ? `${d.getDate()} ${name}: ${moodOf(e.value).label}` : undefined}
                     aria-hidden={!e}
                     className={`aspect-square rounded-[4px] ${k === today ? "ring-1 ring-accent" : ""}`}
-                    style={{ background: show ? moodOf(e!.mood_value).color : "var(--surface-3)" }}
+                    style={{ background: show ? moodOf(e!.value).color : "var(--surface-3)" }}
                   />
                 );
               })}

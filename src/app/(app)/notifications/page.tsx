@@ -24,6 +24,8 @@ function notificationText(n: NotificationRow): { text: React.ReactNode; mood?: n
       return { text: <>{name} хочет добавить тебя в друзья</> };
     case "request_accepted":
       return { text: <>{name} принял(а) твою заявку в друзья</> };
+    case "request_declined":
+      return { text: <>{name} отклонил(а) твою заявку в друзья</> };
     case "new_friend":
       return { text: <>{name} теперь в списке твоих друзей</> };
     case "friend_mood":

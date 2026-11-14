@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/providers/ToastProvider";
-import { summarize, fmtAvg, fmtPct, inRange } from "@/lib/stats";
+import { summarize, fmtAvg, fmtPct, inRange, aggregateByDay } from "@/lib/stats";
 import { MONTHS, monthGrid, toKey, plural, WEEKDAYS_SHORT } from "@/lib/dates";
 import { moodOf } from "@/lib/mood";
 import type { EntryLite } from "@/lib/types";
@@ -36,7 +36,7 @@ async function renderImage(year: number, month: number, entries: EntryLite[], na
     ),
   );
   const s = summarize(entries);
-  const byDate = new Map(entries.map((e) => [e.entry_date, e]));
+  const byDate = aggregateByDay(entries);
 
   ctx.fillStyle = "#f2f4f8";
   ctx.fillRect(0, 0, W, H);
@@ -62,7 +62,7 @@ async function renderImage(year: number, month: number, entries: EntryLite[], na
   }
 
   const tiles = [
-    ["Отмечено", `${s.count} ${plural(s.count, ["день", "дня", "дней"])}`],
+    ["Отмечено", `${s.days} ${plural(s.days, ["день", "дня", "дней"])}`],
     ["Среднее", fmtAvg(s.avg)],
     ["Хороших дней", s.count ? fmtPct(s.positive) : "—"],
   ];
@@ -88,7 +88,7 @@ async function renderImage(year: number, month: number, entries: EntryLite[], na
       if (!d) return;
       const x = gx + di * (cell + gap), y = gy + wi * (cell + gap);
       const e = byDate.get(toKey(d));
-      const m = e ? moodOf(e.mood_value) : null;
+      const m = e ? moodOf(e.value) : null;
       // Картинка всегда в светлой теме — фиксированные мягкие цвета
       rr(x, y, cell, cell * 0.8, 24, m ? LIGHT_SOFT[m.value] : "#f5f7fa");
       ctx.fillStyle = "#8a94a6";
@@ -172,7 +172,7 @@ export function MonthCard({ entries, name }: { entries: EntryLite[]; name: strin
             {top && <MoodEmoji value={top.value} size={56} />}
             <p className="text-[15px] leading-snug text-text-2">
               В {MONTH_PREP[ym.m]} чаще всего было <b className="text-text">«{top?.label.toLowerCase()}»</b>. Отмечено{" "}
-              <b className="text-text">{s.count} {plural(s.count, ["день", "дня", "дней"])}</b>, среднее —{" "}
+              <b className="text-text">{s.days} {plural(s.days, ["день", "дня", "дней"])}</b>, среднее —{" "}
               <b className="text-text">{fmtAvg(s.avg)}</b>, хороших дней — <b className="text-text">{fmtPct(s.positive)}</b>.
             </p>
           </div>

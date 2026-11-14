@@ -37,14 +37,17 @@ export interface EntryLite {
   updated_at?: string;
 }
 
+/** Что видят пользователи, которые НЕ в друзьях. Друзья видят всё. */
 export interface PrivacySettings {
   user_id: string;
-  profile_visibility: "friends" | "private";
-  mood_visibility: "none" | "today" | "latest";
-  calendar_visibility: boolean;
-  statistics_visibility: boolean;
-  notes_visibility: boolean;
-  photos_visibility: boolean;
+  public_visibility: "all" | "latest" | "none";
+  photos_public: boolean;
+}
+
+/** Среднее настроение за день и число отметок */
+export interface DayAgg {
+  value: number;
+  count: number;
 }
 
 export interface NotificationSettings {
@@ -94,6 +97,7 @@ export interface ActivityRow {
 export type NotificationType =
   | "friend_request"
   | "request_accepted"
+  | "request_declined"
   | "new_friend"
   | "friend_mood"
   | "friend_mood_updated";
@@ -115,21 +119,13 @@ export interface UserProfileView {
   username: string;
   display_name: string;
   avatar_url: string | null;
-  timezone: string | null;
   relation: "self" | "friends" | "outgoing" | "incoming" | "none";
   friendship_id: string | null;
-  is_private: boolean;
-  can_see_calendar: boolean;
-  can_see_stats: boolean;
-  can_see_notes: boolean;
+  /** self | friend — всё; all — всё (не друг); latest — последняя отметка; none — ничего */
+  access: "self" | "friend" | "all" | "latest" | "none";
+  can_see_history: boolean;
   can_see_photos: boolean;
   is_muted: boolean;
-  latest: {
-    id: string;
-    mood_value: MoodValue;
-    entry_date: string;
-    day_part: DayPart;
-    mood_time: string;
-    updated_at: string;
-  } | null;
+  entries_count: number | null;
+  latest: (EntryLite & { updated_at: string }) | null;
 }

@@ -1,5 +1,5 @@
 // Расчёт статистики настроения на клиенте (данных немного — до 366 записей в год).
-import type { DayPart, EntryLite, MoodValue } from "./types";
+import type { DayAgg, DayPart, EntryLite, MoodValue } from "./types";
 import { addDays, fromKey, toKey, weekdayIndex, WEEKDAYS_PLURAL, MONTHS_SHORT, plural } from "./dates";
 import { DAY_PARTS, moodGroup } from "./mood";
 
@@ -46,8 +46,25 @@ export function periodRange(id: PeriodId, entries: EntryLite[], today = new Date
   return { from, to, days: def.days, prevFrom, prevTo };
 }
 
+/** Среднее за каждый день (в день может быть несколько отметок) */
+export function aggregateByDay(entries: EntryLite[]): Map<string, DayAgg> {
+  const sums = new Map<string, { s: number; n: number }>();
+  for (const e of entries) {
+    const a = sums.get(e.entry_date) ?? { s: 0, n: 0 };
+    a.s += e.mood_value;
+    a.n++;
+    sums.set(e.entry_date, a);
+  }
+  const out = new Map<string, DayAgg>();
+  sums.forEach((a, k) => out.set(k, { value: a.s / a.n, count: a.n }));
+  return out;
+}
+
 export interface Summary {
+  /** число отметок */
   count: number;
+  /** число дней с отметками */
+  days: number;
   avg: number | null;
   mostFrequent: MoodValue | null;
   positive: number; // доля 0..1
@@ -74,6 +91,7 @@ export function summarize(entries: EntryLite[]): Summary {
   }
   return {
     count: n,
+    days: new Set(entries.map((e) => e.entry_date)).size,
     avg: avg(entries.map((e) => e.mood_value)),
     mostFrequent,
     positive: n ? pos / n : 0,
@@ -114,15 +132,20 @@ export interface SeriesPoint { key: string; label: string; value: number | null;
 
 /** Ряд для графика: по дням (до 31 дня), по неделям (до полугода) или по месяцам */
 export function series(entries: EntryLite[], range: PeriodRange): SeriesPoint[] {
-  const map = new Map(entries.map((e) => [e.entry_date, e.mood_value]));
+  const daily = aggregateByDay(entries);
   const start = fromKey(range.from);
   const end = fromKey(range.to);
   const points: SeriesPoint[] = [];
   if (range.days <= 31) {
     for (let d = start; d <= end; d = addDays(d, 1)) {
       const k = toKey(d);
-      const v = map.get(k) ?? null;
-      points.push({ key: k, label: `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`, value: v, count: v ? 1 : 0 });
+      const a = daily.get(k);
+      points.push({
+        key: k,
+        label: `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`,
+        value: a ? Math.round(a.value * 100) / 100 : null,
+        count: a?.count ?? 0,
+      });
     }
     return points;
   }

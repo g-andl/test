@@ -1,41 +1,34 @@
 "use client";
 import { createContext, useCallback, useContext, useState } from "react";
 import { MoodSheet } from "./MoodSheet";
-import { useMyEntries } from "@/hooks/data";
 import { todayKey } from "@/lib/dates";
-import type { MoodValue } from "@/lib/types";
+import type { MoodEntry, MoodValue } from "@/lib/types";
 
-type Open = (opts?: { date?: string; mood?: MoodValue }) => void;
+/** Открыть окно отметки: новая отметка (date, mood) или редактирование (entry) */
+type Open = (opts?: { date?: string; mood?: MoodValue; entry?: MoodEntry }) => void;
 const Ctx = createContext<Open>(() => undefined);
-/** Открыть панель отметки настроения из любого экрана */
 export const useMoodSheet = () => useContext(Ctx);
 
 export function MoodSheetProvider({ children }: { children: React.ReactNode }) {
-  const { byDate } = useMyEntries();
-  const [state, setState] = useState<{ open: boolean; date: string; mood: MoodValue | null }>({
+  const [state, setState] = useState<{ open: boolean; date: string; mood: MoodValue | null; entry: MoodEntry | null }>({
     open: false,
     date: todayKey(),
     mood: null,
+    entry: null,
   });
 
   const open = useCallback<Open>((opts) => {
-    const date = opts?.date ?? todayKey();
+    const date = opts?.entry?.entry_date ?? opts?.date ?? todayKey();
     // Будущие дни отмечать нельзя
     if (date > todayKey()) return;
-    setState({ open: true, date, mood: opts?.mood ?? null });
+    setState({ open: true, date, mood: opts?.mood ?? null, entry: opts?.entry ?? null });
   }, []);
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
 
   return (
     <Ctx.Provider value={open}>
       {children}
-      <MoodSheet
-        open={state.open}
-        onClose={close}
-        date={state.date}
-        existing={byDate.get(state.date) ?? null}
-        initialMood={state.mood}
-      />
+      <MoodSheet open={state.open} onClose={close} date={state.date} existing={state.entry} initialMood={state.mood} />
     </Ctx.Provider>
   );
 }

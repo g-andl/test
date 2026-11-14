@@ -10,7 +10,9 @@ export function Sheet({
   title,
   children,
   footer,
+  wide,
 }: {
+  wide?: boolean;
   open: boolean;
   onClose: () => void;
   title?: React.ReactNode;
@@ -62,7 +64,7 @@ export function Sheet({
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}
             tabIndex={-1}
-            className="relative flex max-h-[92dvh] w-full flex-col rounded-t-[28px] bg-surface shadow-float outline-none lg:max-h-[86vh] lg:max-w-lg lg:rounded-[28px]"
+            className={`relative flex max-h-[92dvh] w-full flex-col rounded-t-[28px] bg-surface shadow-float outline-none lg:max-h-[88vh] lg:rounded-[28px] ${wide ? "lg:max-w-3xl" : "lg:max-w-lg"}`}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}

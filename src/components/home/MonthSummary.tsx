@@ -16,7 +16,7 @@ export function MonthSummary({ entries }: { entries: MoodEntry[] }) {
   const streak = currentStreak(entries);
 
   const tiles = [
-    { label: "Отмечено", value: `${s.count}`, sub: plural(s.count, ["день", "дня", "дней"]) },
+    { label: "Отмечено", value: `${s.days}`, sub: plural(s.days, ["день", "дня", "дней"]) },
     { label: "Среднее", value: fmtAvg(s.avg), sub: "", avgEmoji: s.avg, emoji: true },
     { label: "Хороших", value: s.count ? fmtPct(s.positive) : "—", sub: "дней" },
   ];

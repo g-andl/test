@@ -1,22 +1,24 @@
 "use client";
-import { Pencil } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { EntryCard } from "./EntryCard";
 import { capitalize, formatLong, fromKey } from "@/lib/dates";
-import type { EntryLite } from "@/lib/types";
+import type { EntryLite, MoodEntry } from "@/lib/types";
 
-/** Подробности дня в нижней панели */
+/** Все отметки дня в нижней панели */
 export function DaySheet({
   date,
-  entry,
+  entries,
   onClose,
-  onEdit,
+  onAdd,
+  own,
 }: {
   date: string | null;
-  entry: EntryLite | null | undefined;
+  entries: (EntryLite | MoodEntry)[];
   onClose: () => void;
-  onEdit?: (date: string) => void;
+  onAdd?: (date: string) => void;
+  own?: boolean;
 }) {
   return (
     <Sheet
@@ -24,19 +26,23 @@ export function DaySheet({
       onClose={onClose}
       title={date ? capitalize(formatLong(fromKey(date))) : ""}
       footer={
-        onEdit && date ? (
-          <Button block size="lg" onClick={() => onEdit(date)}>
-            <Pencil className="size-5" /> {entry ? "Изменить запись" : "Отметить настроение"}
+        onAdd && date ? (
+          <Button block size="lg" onClick={() => onAdd(date)}>
+            <Plus className="size-5" /> Добавить отметку
           </Button>
         ) : undefined
       }
     >
-      {entry ? (
-        <div className="rounded-[22px] bg-surface-2 p-1">
-          <EntryCard entry={entry} highlight />
+      {entries.length ? (
+        <div className="flex flex-col gap-2">
+          {entries.map((e) => (
+            <div key={e.id} className="rounded-[22px] bg-surface-2 p-1">
+              <EntryCard entry={e} own={own} highlight />
+            </div>
+          ))}
         </div>
       ) : (
-        <p className="py-6 text-center text-muted">В этот день отметки нет</p>
+        <p className="py-6 text-center text-muted">В этот день отметок нет</p>
       )}
     </Sheet>
   );

@@ -3,11 +3,11 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, startOfWeek, toKey, todayKey, WEEKDAYS_SHORT, MONTHS, capitalize } from "@/lib/dates";
 import { moodOf } from "@/lib/mood";
-import type { MoodEntry } from "@/lib/types";
+import type { DayAgg } from "@/lib/types";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
 /** Полоса недели: Пн–Вс, сегодня выделено. Нажатие открывает отметку за день. */
-export function WeekStrip({ byDate, onPick }: { byDate: Map<string, MoodEntry>; onPick: (key: string) => void }) {
+export function WeekStrip({ byDate, onPick }: { byDate: Map<string, DayAgg>; onPick: (key: string) => void }) {
   const [offset, setOffset] = useState(0);
   const start = addDays(startOfWeek(new Date()), offset * 7);
   const today = todayKey();
@@ -37,7 +37,7 @@ export function WeekStrip({ byDate, onPick }: { byDate: Map<string, MoodEntry>; 
           const e = byDate.get(k);
           const isToday = k === today;
           const future = k > today;
-          const m = e ? moodOf(e.mood_value) : null;
+          const m = e ? moodOf(e.value) : null;
           return (
             <li key={k}>
               <button
