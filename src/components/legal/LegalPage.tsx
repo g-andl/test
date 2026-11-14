@@ -4,6 +4,7 @@ import { Logo } from "@/components/Logo";
 import { LEGAL_DATE } from "@/lib/legal";
 
 const DOCS = [
+  { href: "/legal/rules/", title: "Правила" },
   { href: "/legal/terms/", title: "Пользовательское соглашение" },
   { href: "/legal/privacy/", title: "Политика обработки персональных данных" },
   { href: "/legal/consent/", title: "Согласие на обработку персональных данных" },
