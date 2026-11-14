@@ -1,0 +1,51 @@
+# Сборка и публикация приложения на GitHub Pages.
+# Запускается вручную (Actions → «Публикация на GitHub Pages» → Run workflow) или при пуше в main.
+# Публичные настройки Supabase лежат в .env.production.
+name: Публикация на GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Проверка типов и линтер
+        run: npm run typecheck && npm run lint
+      - name: Сборка
+        run: npm run build
+        # Адрес Supabase и публичный ключ берутся из .env.production
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+      - name: Отключаем обработку Jekyll (нужно для папки _next)
+        run: touch out/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

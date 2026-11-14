@@ -1,0 +1,162 @@
+"use client";
+import { useMemo, useState } from "react";
+import { CalendarSearch, SearchX, BookOpen } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { Segmented, Chip } from "@/components/ui/Segmented";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
+import { Timeline } from "@/components/diary/Timeline";
+import { MonthCalendar } from "@/components/diary/MonthCalendar";
+import { YearHeatmap } from "@/components/diary/YearHeatmap";
+import { DaySheet } from "@/components/diary/DaySheet";
+import { useMoodSheet } from "@/components/mood/MoodSheetProvider";
+import { useMyEntries } from "@/hooks/data";
+import { MOODS } from "@/lib/mood";
+import { fromKey, todayKey } from "@/lib/dates";
+import { humanError } from "@/lib/errors";
+import type { MoodValue } from "@/lib/types";
+import { MoodEmoji } from "@/components/mood/MoodEmoji";
+
+type Mode = "feed" | "calendar";
+type CalMode = "month" | "year";
+
+export default function DiaryPage() {
+  const { entries, byDate, loading, error, refetch } = useMyEntries();
+  const openMood = useMoodSheet();
+  const now = new Date();
+  const [mode, setMode] = useState<Mode>("feed");
+  const [calMode, setCalMode] = useState<CalMode>("month");
+  const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
+  const [filter, setFilter] = useState<MoodValue | null>(null);
+  const [limit, setLimit] = useState(30);
+  const [day, setDay] = useState<string | null>(null);
+
+  const filtered = useMemo(() => (filter ? entries.filter((e) => e.mood_value === filter) : entries), [entries, filter]);
+  const minYear = entries.length ? fromKey(entries[entries.length - 1].entry_date).getFullYear() : now.getFullYear();
+
+  function jumpTo(key: string) {
+    if (!key) return;
+    if (key > todayKey()) return;
+    const d = fromKey(key);
+    setYm({ y: d.getFullYear(), m: d.getMonth() });
+    setDay(key);
+  }
+
+  const filters = (
+    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 min-[380px]:-mx-5 min-[380px]:px-5 lg:mx-0 lg:px-0">
+      <Chip active={!filter} onClick={() => setFilter(null)}>Все</Chip>
+      {MOODS.map((m) => (
+        <Chip key={m.value} active={filter === m.value} onClick={() => setFilter(filter === m.value ? null : m.value)}>
+          <MoodEmoji value={m.value} size={20} decorative /> {m.label}
+        </Chip>
+      ))}
+    </div>
+  );
+
+  return (
+    <>
+      <PageHeader eyebrow="Личное" title="Мой дневник" />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Segmented
+          ariaLabel="Режим дневника"
+          className="flex-1 lg:max-w-xs"
+          stretch
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "feed", label: "Лента" },
+            { value: "calendar", label: "Календарь" },
+          ]}
+        />
+        <label className="relative flex h-12 cursor-pointer items-center gap-2 rounded-2xl bg-surface px-4 text-sm font-semibold shadow-card">
+          <CalendarSearch className="size-5 text-accent" />
+          <span className="hidden min-[400px]:inline">К дате</span>
+          <input
+            type="date"
+            max={todayKey()}
+            aria-label="Перейти к дате"
+            onChange={(e) => jumpTo(e.target.value)}
+            className="absolute inset-0 cursor-pointer opacity-0"
+          />
+        </label>
+      </div>
+      <div className="mb-5">{filters}</div>
+
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      ) : error ? (
+        <ErrorState text={humanError(error)} onRetry={refetch} />
+      ) : mode === "feed" ? (
+        filtered.length === 0 ? (
+          <EmptyState
+            icon={filter ? <SearchX /> : <BookOpen />}
+            title={filter ? "Нет таких записей" : "Дневник пока пуст"}
+            text={filter ? "Попробуй выбрать другое настроение" : "Отметь настроение — и здесь появится первая запись"}
+            action={!filter && <Button onClick={() => openMood()}>Отметить настроение</Button>}
+          />
+        ) : (
+          <div className="lg:max-w-2xl">
+            <Timeline entries={filtered.slice(0, limit)} onOpen={(e) => setDay(e.entry_date)} />
+            {filtered.length > limit && (
+              <Button variant="secondary" block className="mt-5" onClick={() => setLimit((l) => l + 30)}>
+                Показать ещё
+              </Button>
+            )}
+          </div>
+        )
+      ) : (
+        <Card className="lg:max-w-3xl">
+          <Segmented
+            ariaLabel="Масштаб календаря"
+            className="mb-4"
+            stretch
+            value={calMode}
+            onChange={setCalMode}
+            options={[
+              { value: "month", label: "Месяц" },
+              { value: "year", label: "Год" },
+            ]}
+          />
+          {calMode === "month" ? (
+            <MonthCalendar
+              year={ym.y}
+              month={ym.m}
+              minYear={minYear}
+              onChange={(y, m) => setYm({ y, m })}
+              byDate={byDate}
+              filter={filter}
+              onDayClick={setDay}
+            />
+          ) : (
+            <YearHeatmap
+              year={ym.y}
+              onYear={(y) => setYm((s) => ({ ...s, y }))}
+              byDate={byDate}
+              filter={filter}
+              onDayClick={setDay}
+              onMonthClick={(m) => {
+                setYm((s) => ({ ...s, m }));
+                setCalMode("month");
+              }}
+            />
+          )}
+        </Card>
+      )}
+
+      <DaySheet
+        date={day}
+        entry={day ? byDate.get(day) : null}
+        onClose={() => setDay(null)}
+        onEdit={(d) => {
+          setDay(null);
+          openMood({ date: d });
+        }}
+      />
+    </>
+  );
+}

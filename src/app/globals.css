@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+/* Тёмная тема включается атрибутом data-theme="dark" на <html> */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* =========================================================
+   Дизайн-токены «Настрой»
+   Светлая тема — мягкий серо-голубой фон, белые карточки,
+   синий акцент, тёмная основная кнопка.
+   ========================================================= */
+:root {
+  --bg: #f2f4f8;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --surface-3: #eceff4;
+  --text: #0f172a;
+  --text-2: #475069;
+  --muted: #8a94a6;
+  --line: #e6e9ef;
+  --accent: #4d8df7;
+  --accent-strong: #2f74ea;
+  --accent-soft: #e7f0fe;
+  --ink: #0f1a33;
+  --ink-fg: #ffffff;
+  --danger: #e5484d;
+  --danger-soft: #fdecec;
+  --success: #2fb67c;
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.05);
+  --shadow-lg: 0 12px 40px rgb(15 23 42 / 0.14);
+
+  /* Цвета настроений: 5 Отлично … 1 Плохо */
+  --mood-5: #2fb67c;
+  --mood-4: #4d8df7;
+  --mood-3: #9aa5b8;
+  --mood-2: #8b7cf6;
+  --mood-1: #f06b6b;
+  --mood-5-soft: #e3f6ed;
+  --mood-4-soft: #e7f0fe;
+  --mood-3-soft: #eef1f5;
+  --mood-2-soft: #efecfe;
+  --mood-1-soft: #fde9e9;
+
+  --nav-h: 64px;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0b0e14;
+  --surface: #141922;
+  --surface-2: #1b212c;
+  --surface-3: #232a37;
+  --text: #eef1f6;
+  --text-2: #b4bccb;
+  --muted: #7f8899;
+  --line: #262d3a;
+  --accent: #5b9bff;
+  --accent-strong: #7aaeff;
+  --accent-soft: #1b2a44;
+  --ink: #eef1f6;
+  --ink-fg: #0b0e14;
+  --danger: #ff6369;
+  --danger-soft: #3a1d20;
+  --success: #3cc98c;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 12px 40px rgb(0 0 0 / 0.5);
+
+  --mood-5: #2ea873;
+  --mood-4: #4a86ec;
+  --mood-3: #6b7383;
+  --mood-2: #8576ec;
+  --mood-1: #e5605f;
+  --mood-5-soft: #16302a;
+  --mood-4-soft: #1b2a44;
+  --mood-3-soft: #222833;
+  --mood-2-soft: #262342;
+  --mood-1-soft: #3a2024;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-ink: var(--ink);
+  --color-ink-fg: var(--ink-fg);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --shadow-card: var(--shadow);
+  --shadow-float: var(--shadow-lg);
+  --radius-card: 24px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 0;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+/* Эмодзи — системный цветной шрифт */
+.emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  line-height: 1;
+}
+
+/* Безопасные области (вырезы, Dynamic Island, домашняя полоска) */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Скрытая полоса прокрутки для горизонтальных лент */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Фокус для клавиатуры */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Recharts: убираем рамку фокуса у svg */
+.recharts-wrapper svg:focus,
+.recharts-surface:focus { outline: none; }
