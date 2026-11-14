@@ -92,7 +92,7 @@ try {
   // Ответы как комментарии: владелец отвечает, автор отвечает в ответ
   await o.page.getByRole("button", { name: "Ответить" }).first().click();
   await o.page.getByLabel(/Ответ для/).fill("Спасибо, мне приятно!");
-  await o.page.getByRole("button", { name: "Отправить ответ" }).click();
+  await o.page.getByRole("button", { name: "Отправить", exact: true }).last().click();
   await o.page.getByText("Ответ отправлен").waitFor();
   await o.page.getByText("Спасибо, мне приятно!").waitFor();
   await o.page.screenshot({ path: `${SHOTS}/s2c-thread.png` });
@@ -103,7 +103,7 @@ try {
   await w.page.getByRole("button", { name: "Ответить" }).last().click();
   assert.match(await w.page.getByLabel(/Ответ для/).inputValue(), /^Владелица, /, "ответ на ответ начинается с имени");
   await w.page.getByLabel(/Ответ для/).fill("Владелица, обращайся!");
-  await w.page.getByRole("button", { name: "Отправить ответ" }).click();
+  await w.page.getByRole("button", { name: "Отправить", exact: true }).last().click();
   await w.page.getByText("Ответ отправлен").waitFor();
   await o.page.reload();
   await o.page.getByText("обращайся!").waitFor();
