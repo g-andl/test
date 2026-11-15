@@ -72,6 +72,7 @@ try {
   await card.getByRole("button", { name: /открыть аккаунт/ }).click();
   const sheet = page.getByRole("dialog");
   await sheet.getByText("Аккаунт создан").waitFor();
+  await sheet.getByRole("button", { name: /Открыть все отметки/ }).click();
   await sheet.getByLabel("Заметка").first().waitFor();
   assert.equal(await sheet.getByLabel("Заметка").first().inputValue(), "заметка пользователя");
   await page.screenshot({ path: `${SHOTS}/a3-admin-user.png` });
