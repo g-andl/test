@@ -1,5 +1,5 @@
 /* Service Worker «Настрой»: push-уведомления и офлайн-оболочка */
-const CACHE = "nastroy-v1";
+const CACHE = "nastroy-v2"; // смена имени сбрасывает сохранённые файлы у всех
 const SCOPE = self.registration.scope; // учитывает подпапку GitHub Pages
 
 self.addEventListener("install", (e) => {
