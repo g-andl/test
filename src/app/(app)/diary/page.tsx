@@ -103,8 +103,8 @@ export default function DiaryPage() {
           value={mode}
           onChange={setMode}
           options={[
-            { value: "feed", label: "Лента" },
             { value: "notes", label: "Заметки" },
+            { value: "feed", label: "Лента" },
             { value: "calendar", label: "Календарь" },
           ]}
         />
