@@ -264,6 +264,12 @@ export async function submitRecoveryRequest(username: string, contact: string, m
 export async function amIAdmin(): Promise<boolean> {
   return Boolean(check(await supabase.rpc("am_i_admin")));
 }
+export async function amIOwner(): Promise<boolean> {
+  return Boolean(check(await supabase.rpc("am_i_owner")));
+}
+export async function adminSetAdmin(userId: string, admin: boolean) {
+  check(await supabase.rpc("admin_set_admin", { p_user: userId, p_admin: admin }));
+}
 export async function adminListUsers(search: string, limit = 50, offset = 0): Promise<AdminUser[]> {
   return (check(await supabase.rpc("admin_list_users", { p_search: search, p_limit: limit, p_offset: offset })) ?? []) as AdminUser[];
 }

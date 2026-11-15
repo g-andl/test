@@ -1,5 +1,5 @@
 "use client";
-import { User, Shield, Bell, KeyRound, LogOut, Sun, Moon, Monitor, FileText } from "lucide-react";
+import { User, Shield, Bell, KeyRound, LogOut, Sun, Moon, Monitor, FileText, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -12,9 +12,13 @@ import { useTheme, type ThemePref } from "@/components/providers/ThemeProvider";
 import { useMyEntries, useFriends } from "@/hooks/data";
 import { currentStreak } from "@/lib/stats";
 import { plural } from "@/lib/dates";
+import { useQuery } from "@/lib/query";
+import { amIAdmin } from "@/lib/api";
 
 export default function ProfilePage() {
   const { profile, signOut } = useAuth();
+  // Раздел «Админ-панель» виден только аккаунту с правами администратора (проверяет база)
+  const { data: isAdmin } = useQuery(profile ? `am-admin:${profile.id}` : null, amIAdmin);
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const { entries } = useMyEntries();
@@ -54,6 +58,7 @@ export default function ProfilePage() {
             <ListRow href="/settings/notifications/" icon={<Bell className="size-5" />} label="Уведомления" />
             <ListRow href="/settings/account/" icon={<KeyRound className="size-5" />} label="Аккаунт" value="Пароль, удаление" />
             <ListRow href="/legal/" icon={<FileText className="size-5" />} label="Документы" value="Правила, политика" />
+            {isAdmin && <ListRow href="/admin/" icon={<ShieldCheck className="size-5" />} label="Админ-панель" value="Полный доступ" />}
           </Card>
 
           <Card>

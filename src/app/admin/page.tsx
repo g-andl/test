@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound, RefreshCw, Trash2 } from "lucide-react";
+import { Search, ArrowLeft, LogOut, ShieldCheck, ExternalLink, UserRound, KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
 import { Field } from "@/components/ui/Field";
@@ -15,7 +15,7 @@ import { AdminUserSheet, fmtDateTime } from "@/components/admin/AdminUserSheet";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
-import { adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery, adminSaveBadge, adminDeleteBadge, adminRefreshBadges } from "@/lib/api";
+import { amIAdmin, adminListUsers, adminListRecovery, adminUpdateRecovery, adminDeleteRecovery, adminSaveBadge, adminDeleteBadge, adminRefreshBadges } from "@/lib/api";
 import { humanError } from "@/lib/errors";
 import { plural } from "@/lib/dates";
 import type { AdminUser, RecoveryRequest } from "@/lib/types";
@@ -253,7 +253,9 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(50);
   const [open, setOpen] = useState<AdminUser | null>(null);
-  const isAdmin = !!profile?.is_admin;
+  // Права определяет база: админ-панель доступна и обычному аккаунту с правами администратора
+  const adminQ = useQuery(session ? `am-admin:${session.user.id}` : null, amIAdmin);
+  const isAdmin = !!adminQ.data;
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(q.trim()), 300);
@@ -302,7 +304,8 @@ export default function AdminPage() {
   }
 
   if (!ready || (session && !profile)) return <div className="flex min-h-dvh items-center justify-center"><Spinner /></div>;
-  if (!session) return null;
+  if (session && adminQ.loading) return <div className="flex min-h-dvh items-center justify-center"><Spinner /></div>;
+  if (!session || !profile) return null;
   if (!isAdmin) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6 text-center">
@@ -322,16 +325,22 @@ export default function AdminPage() {
             <Logo size={30} />
             <span className="hidden rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent sm:inline">Админ-панель</span>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={async () => {
-              await signOut();
-              router.replace("/login/");
-            }}
-          >
-            <LogOut className="size-4" /> Выйти
-          </Button>
+          {profile.is_admin ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                await signOut();
+                router.replace("/login/");
+              }}
+            >
+              <LogOut className="size-4" /> Выйти
+            </Button>
+          ) : (
+            <Button size="sm" variant="ghost" onClick={() => router.push("/profile/")}>
+              <ArrowLeft className="size-4" /> В приложение
+            </Button>
+          )}
         </div>
       </header>
 

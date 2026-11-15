@@ -288,3 +288,48 @@ test('админ удаляет аккаунт, но не себя', async () =>
   const { data } = await admin.from('profiles').select('id').eq('id', other.id);
   assert.equal(data.length, 0);
 });
+
+test('обычный аккаунт с правами администратора: друзья, соцсеть и админ-функции работают', async () => {
+  const hyb = await signUp(`hyb_${run}`, 'Георгий');
+  await admin.from('admins').insert({ user_id: hyb.id, service: false });
+  const p = await other.c.from('profiles').select('is_admin').eq('id', hyb.id).single();
+  assert.equal(p.data.is_admin, false, 'пометки «Администратор» у него нет');
+  assert.equal((await hyb.c.rpc('am_i_admin')).data, true, 'права администратора есть');
+  const list = await hyb.c.rpc('admin_list_users', {});
+  assert.ok(!list.error && list.data.length > 0, 'список аккаунтов доступен');
+  const peer = await signUp(`peer_${run}`, 'Друг');
+  const fr = await hyb.c.rpc('send_friend_request', { p_addressee: peer.id });
+  assert.ok(!fr.error, `в друзья добавлять можно: ${fr.error?.message}`);
+  const toService = await hyb.c.rpc('send_friend_request', { p_addressee: boss.id });
+  assert.ok(toService.error, 'служебного администратора в друзья по-прежнему нельзя');
+  // обычный пользователь прав не получает
+  assert.equal((await other.c.rpc('am_i_admin')).data, false);
+});
+
+test('назначать и снимать администраторов может только владелец', async () => {
+  const owner = await signUp(`own_${run}`, 'Владелец');
+  await admin.from('admins').insert({ user_id: owner.id, service: false, owner: true });
+  const second = await signUp(`sec_${run}`, 'Второй админ');
+  await admin.from('admins').insert({ user_id: second.id, service: false });
+  const cand = await signUp(`cnd_${run}`, 'Кандидат');
+
+  assert.equal((await owner.c.rpc('am_i_owner')).data, true);
+  assert.equal((await second.c.rpc('am_i_owner')).data, false, 'у второго админа нет доступа владельца');
+
+  const denied = await second.c.rpc('admin_set_admin', { p_user: cand.id, p_admin: true });
+  assert.ok(denied.error, 'второй админ не назначает администраторов');
+  const denied2 = await other.c.rpc('admin_set_admin', { p_user: cand.id, p_admin: true });
+  assert.ok(denied2.error, 'обычный пользователь тоже');
+
+  const ok = await owner.c.rpc('admin_set_admin', { p_user: cand.id, p_admin: true });
+  assert.ok(!ok.error, ok.error?.message);
+  assert.equal((await cand.c.rpc('am_i_admin')).data, true, 'кандидат стал администратором');
+  assert.equal((await cand.c.rpc('am_i_owner')).data, false, 'но не владельцем');
+
+  const self = await owner.c.rpc('admin_set_admin', { p_user: owner.id, p_admin: false });
+  assert.ok(self.error, 'свои права менять нельзя');
+
+  const off = await owner.c.rpc('admin_set_admin', { p_user: cand.id, p_admin: false });
+  assert.ok(!off.error, off.error?.message);
+  assert.equal((await cand.c.rpc('am_i_admin')).data, false, 'права сняты');
+});
