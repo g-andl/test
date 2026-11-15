@@ -14,6 +14,7 @@ import { humanError } from "@/lib/errors";
 import { usePhoto } from "@/hooks/data";
 import type { DayPart, MoodEntry, MoodValue } from "@/lib/types";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
+import { BreathingSheet } from "./BreathingSheet";
 
 type TimeChoice = "now" | DayPart | "exact";
 
@@ -49,6 +50,7 @@ export function MoodSheet({
   const [removePhoto, setRemovePhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [breathe, setBreathe] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const existingPhoto = usePhoto(existing && !removePhoto ? existing.photo_path : null);
@@ -137,6 +139,8 @@ export function MoodSheet({
       invalidate(keys.entries(session.user.id));
       if (existing?.photo_path) invalidate(keys.photo(existing.photo_path));
       toast(existing ? "Отметка обновлена" : "Настроение отмечено");
+      // После тяжёлой отметки («Плохо», «Грустно») мягко предлагаем минуту дыхания
+      if (!existing && mood <= 2 && isToday) setBreathe(true);
       onClose();
     } catch (e) {
       toast(humanError(e), "error");
@@ -182,6 +186,8 @@ export function MoodSheet({
   }
 
   return (
+    <>
+    <BreathingSheet open={breathe} onClose={() => setBreathe(false)} />
     <Sheet
       open={open}
       onClose={onClose}
@@ -336,5 +342,6 @@ export function MoodSheet({
         <Lock className="size-3.5" /> Заметки и фото видны только тебе, если не разрешишь друзьям в настройках
       </p>
     </Sheet>
+    </>
   );
 }

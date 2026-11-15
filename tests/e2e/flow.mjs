@@ -144,12 +144,33 @@ try {
   await dialog.getByLabel("Точное время").fill("08:00");
   await dialog.getByRole("button", { name: "Отметить настроение" }).click();
   await page.getByText("Настроение отмечено").waitFor();
+  // После «Плохо» предлагается минута дыхания
+  const breath = page.getByRole("dialog").filter({ hasText: "Минута дыхания" });
+  await breath.getByRole("button", { name: "Подышать минуту" }).waitFor();
+  await page.screenshot({ path: `${SHOTS}/06a-breathing-390.png` });
+  await breath.getByRole("button", { name: "Подышать минуту" }).click();
+  await breath.getByText("Вдох").waitFor();
+  await breath.getByRole("button", { name: "Закончить" }).click();
+  await breath.waitFor({ state: "detached" });
   await dialog.waitFor({ state: "detached" });
+  log("после «Плохо» предложена минута дыхания");
   const { data: two } = await admin.from("mood_entries").select("mood_value, day_part").eq("user_id", me.id).order("mood_time");
   assert.deepEqual(two.map((e) => [e.mood_value, e.day_part]), [[1, "morning"], [5, "evening"]]);
   await page.locator('[aria-label="Отметки за сегодня"]:visible').waitFor();
   log("две отметки в один день (утро и вечер)");
   await page.screenshot({ path: `${SHOTS}/06b-home-two-390.png`, fullPage: true });
+
+  // Итоги дня: звёзды и два вопроса
+  await page.getByRole("radio", { name: /4 из 5/ }).filter({ visible: true }).first().click();
+  await page.getByLabel("Что порадовало?").filter({ visible: true }).first().fill("хороший кофе");
+  await page.getByLabel("Что разочаровало или не понравилось?").filter({ visible: true }).first().fill("дождь");
+  await page.getByLabel("Что понял или чему научился?").filter({ visible: true }).first().fill("надо больше спать");
+  await page.getByRole("button", { name: "Сохранить" }).filter({ visible: true }).first().click();
+  await page.getByText("Итоги дня сохранены").waitFor();
+  const { data: refl } = await admin.from("day_reflections").select("rating, good, bad, insight").eq("user_id", me.id);
+  assert.deepEqual(refl, [{ rating: 4, good: "хороший кофе", bad: "дождь", insight: "надо больше спать" }]);
+  await page.screenshot({ path: `${SHOTS}/06c-reflection-390.png`, fullPage: true });
+  log("итоги дня: оценка звёздами и ответы сохранены");
 
   // ---------- Друзья ----------
   await page.getByRole("link", { name: "Друзья" }).first().click();
@@ -212,12 +233,55 @@ try {
   await page.screenshot({ path: `${SHOTS}/11-diary-feed-390.png` });
   await page.getByRole("tab", { name: "Календарь" }).click();
   await page.screenshot({ path: `${SHOTS}/12-diary-calendar-390.png` });
+  // Заметки дневника: пишем длинный текст, по умолчанию он закрыт для остальных
+  await page.getByRole("tab", { name: "Заметки" }).click();
+  await page.getByText("Видишь только ты").waitFor();
+  // Группа «Личное» создаётся быстрой кнопкой, новая заметка попадает в выбранную группу
+  await page.getByRole("button", { name: "Создать группу" }).click();
+  const gdlg = page.getByRole("dialog").filter({ hasText: "Группы заметок" });
+  await gdlg.getByRole("button", { name: "+ Личное" }).click();
+  await page.getByText("Группа создана").waitFor();
+  await gdlg.getByRole("button", { name: "Готово" }).click();
+  await gdlg.waitFor({ state: "detached" });
+  await page.getByRole("tab", { name: /^Личное/ }).click();
+  await page.getByRole("button", { name: "Новая заметка" }).first().click();
+  await page.getByLabel("Заголовок заметки").fill("Про неделю");
+  await page.getByLabel("Текст заметки").fill("Очень длинная мысль. ".repeat(200));
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await page.getByText("Заметка добавлена").waitFor();
+  await page.getByText("Про неделю").waitFor();
+  await page.getByRole("button", { name: "Показать полностью" }).first().click();
+  await page.getByRole("button", { name: "Свернуть" }).first().waitFor();
+  const { data: jn } = await admin.from("journal_notes").select("title, body, group_id").eq("user_id", me.id);
+  assert.equal(jn.length, 1);
+  assert.ok(jn[0].body.length > 4000, "длинная заметка сохранилась целиком");
+  assert.ok(jn[0].group_id, "заметка попала в выбранную группу");
+  await page.screenshot({ path: `${SHOTS}/12b-diary-notes-390.png` });
+  // Перемещение: из группы в «Без группы»
+  await page.getByRole("button", { name: "Изменить заметку" }).first().click();
+  await page.getByLabel("Группа заметки").selectOption({ label: "Без группы" });
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await page.getByText("Заметка сохранена").waitFor();
+  const { data: moved } = await admin.from("journal_notes").select("group_id").eq("user_id", me.id);
+  assert.equal(moved[0].group_id, null, "заметка перемещена без группы");
+  // Удаление группы не удаляет заметки
+  await page.getByRole("button", { name: "Группы", exact: true }).click();
+  const gdlg2 = page.getByRole("dialog").filter({ hasText: "Группы заметок" });
+  await gdlg2.getByRole("button", { name: "Удалить группу Личное" }).click();
+  await gdlg2.getByRole("button", { name: "Точно удалить?" }).click();
+  await page.getByText("Группа удалена").waitFor();
+  await gdlg2.getByRole("button", { name: "Готово" }).click();
+  const { data: gl } = await admin.from("journal_groups").select("id").eq("user_id", me.id);
+  assert.equal(gl.length, 0);
+  assert.equal((await admin.from("journal_notes").select("id").eq("user_id", me.id)).data.length, 1, "заметка осталась");
+  log("заметки дневника: группы, перемещение, длинная заметка");
+  await page.getByRole("tab", { name: "Календарь" }).click();
   await page.getByRole("tab", { name: "Год" }).click();
   await page.screenshot({ path: `${SHOTS}/13-diary-year-390.png`, fullPage: true });
 
   // Статистика и настройки
   await page.getByRole("link", { name: "Главная" }).click();
-  await page.getByRole("link", { name: "Полная статистика" }).click();
+  await page.goto(`${BASE}/stats/`);
   await page.getByText("Распределение").waitFor();
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${SHOTS}/14-stats-390.png`, fullPage: true });

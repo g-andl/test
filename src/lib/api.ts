@@ -27,6 +27,9 @@ export const keys = {
   support: (id: string) => `support:${id}`,
   badges: "badges",
   photo: (path: string) => `photo:${path}`,
+  reflections: (uid: string) => `reflections:${uid}`,
+  journal: (uid: string) => `journal:${uid}`,
+  journalGroups: (uid: string) => `journalGroups:${uid}`,
 };
 
 // ---------- Профиль ----------
@@ -413,4 +416,72 @@ export async function adminDeleteBadge(id: string) {
 }
 export async function adminSetUserBadge(userId: string, badgeId: string | null) {
   check(await supabase.rpc("admin_set_user_badge", { p_user: userId, p_badge: badgeId }));
+}
+
+// ---------- Рефлексия дня (видна только мне) ----------
+export interface DayReflection {
+  day: string;
+  good: string | null;
+  bad: string | null;
+  insight: string | null;
+  rating: number | null;
+  updated_at: string;
+}
+
+export async function fetchReflections(uid: string): Promise<DayReflection[]> {
+  return check(
+    await supabase.from("day_reflections").select("day, good, bad, insight, rating, updated_at").eq("user_id", uid).order("day", { ascending: false }).limit(1000),
+  ) as DayReflection[];
+}
+
+export async function saveReflection(uid: string, day: string, patch: { good?: string | null; bad?: string | null; insight?: string | null; rating?: number | null }) {
+  check(await supabase.from("day_reflections").upsert({ user_id: uid, day, ...patch }, { onConflict: "user_id,day" }));
+}
+
+// ---------- Заметки в дневнике ----------
+export interface JournalNote {
+  id: string;
+  user_id: string;
+  group_id: string | null;
+  title: string | null;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Заметки пользователя, новые сверху. Чужие база отдаёт только если автор их открыл. */
+export async function fetchJournal(userId: string): Promise<JournalNote[]> {
+  return check(
+    await supabase.from("journal_notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(1000),
+  ) as JournalNote[];
+}
+
+export interface JournalGroup {
+  id: string;
+  user_id: string;
+  name: string;
+}
+
+export async function fetchJournalGroups(userId: string): Promise<JournalGroup[]> {
+  return check(await supabase.from("journal_groups").select("id, user_id, name").eq("user_id", userId).order("created_at")) as JournalGroup[];
+}
+export async function createJournalGroup(uid: string, name: string) {
+  check(await supabase.from("journal_groups").insert({ user_id: uid, name: name.trim() }));
+}
+export async function renameJournalGroup(id: string, name: string) {
+  check(await supabase.from("journal_groups").update({ name: name.trim() }).eq("id", id));
+}
+/** Удаляет группу; заметки из неё остаются без группы */
+export async function deleteJournalGroup(id: string) {
+  check(await supabase.from("journal_groups").delete().eq("id", id));
+}
+
+export async function saveJournalNote(uid: string, id: string | null, title: string, body: string, groupId: string | null) {
+  const row = { title: title.trim() || null, body: body.trim(), group_id: groupId };
+  if (id) check(await supabase.from("journal_notes").update(row).eq("id", id).eq("user_id", uid));
+  else check(await supabase.from("journal_notes").insert({ ...row, user_id: uid }));
+}
+
+export async function deleteJournalNote(id: string) {
+  check(await supabase.from("journal_notes").delete().eq("id", id));
 }

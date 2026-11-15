@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { SearchX, BookOpen, Plus } from "lucide-react";
+import { SearchX, BookOpen, Plus, NotebookPen } from "lucide-react";
+import { JournalNotesOwn } from "@/components/journal/JournalNotes";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented, Chip } from "@/components/ui/Segmented";
 import { Card } from "@/components/ui/Card";
@@ -18,7 +19,7 @@ import { humanError } from "@/lib/errors";
 import type { MoodValue } from "@/lib/types";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
-type Mode = "feed" | "calendar";
+type Mode = "feed" | "calendar" | "notes";
 type CalMode = "month" | "year";
 
 export default function DiaryPage() {
@@ -31,6 +32,20 @@ export default function DiaryPage() {
   const [filter, setFilter] = useState<MoodValue | null>(null);
   const [limit, setLimit] = useState(30);
   const [day, setDay] = useState<string | null>(null);
+  // Сигнал «открыть новую заметку»: с кнопки в заголовке или с плавающего «+» на телефоне
+  const [newNoteSignal, setNewNoteSignal] = useState(0);
+  function newNote() {
+    setMode("notes");
+    setNewNoteSignal((n) => n + 1);
+  }
+  useEffect(() => {
+    const open = () => {
+      setMode("notes");
+      setNewNoteSignal((n) => n + 1);
+    };
+    window.addEventListener("nastroy:new-note", open);
+    return () => window.removeEventListener("nastroy:new-note", open);
+  }, []);
 
   const filtered = useMemo(() => (filter ? entries.filter((e) => e.mood_value === filter) : entries), [entries, filter]);
   // Лента показывается по дням: ограничиваем число дней, а не отметок
@@ -70,9 +85,14 @@ export default function DiaryPage() {
         eyebrow="Личное"
         title="Мой дневник"
         actions={
-          <Button className="hidden lg:inline-flex" onClick={() => openMood()}>
-            <Plus className="size-5" /> Отметить настроение
-          </Button>
+          <div className="hidden gap-2 lg:flex">
+            <Button variant="outline" onClick={newNote}>
+              <NotebookPen className="size-5" /> Заметка
+            </Button>
+            <Button onClick={() => openMood()}>
+              <Plus className="size-5" /> Отметить настроение
+            </Button>
+          </div>
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -84,13 +104,16 @@ export default function DiaryPage() {
           onChange={setMode}
           options={[
             { value: "feed", label: "Лента" },
+            { value: "notes", label: "Заметки" },
             { value: "calendar", label: "Календарь" },
           ]}
         />
       </div>
-      <div className="mb-5">{filters}</div>
+      {mode !== "notes" && <div className="mb-5">{filters}</div>}
 
-      {loading ? (
+      {mode === "notes" ? (
+        <JournalNotesOwn newSignal={newNoteSignal} />
+      ) : loading ? (
         <div className="flex flex-col gap-3">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />

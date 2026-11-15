@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { Plus, Bell as BellIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, NotebookPen, Smile, Bell as BellIcon } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { MoodSheetProvider, useMoodSheet } from "@/components/mood/MoodSheetProvider";
 import { Spinner } from "@/components/ui/States";
@@ -115,19 +115,36 @@ function Sidebar() {
   );
 }
 
-/** Плавающая кнопка «+» в дневнике (на главной есть своя крупная кнопка) */
+/** Плавающая кнопка «+» в дневнике: по касанию предлагает отметить настроение или написать заметку */
 function Fab() {
   const openMood = useMoodSheet();
   const pathname = usePathname();
+  const [menu, setMenu] = useState(false);
   if (!["/diary/"].includes(pathname.endsWith("/") ? pathname : `${pathname}/`)) return null;
+  const pos = "fixed right-4 z-40 lg:hidden bottom-[calc(var(--nav-h)+env(safe-area-inset-bottom)+16px)]";
+  const item = "flex h-12 items-center gap-2 whitespace-nowrap rounded-2xl bg-surface px-4 text-[15px] font-semibold shadow-card transition active:scale-95";
   return (
-    <button
-      onClick={() => openMood()}
-      aria-label="Отметить настроение"
-      className="fixed bottom-[calc(var(--nav-h)+env(safe-area-inset-bottom)+16px)] right-4 z-40 flex size-14 items-center justify-center rounded-[20px] bg-accent text-white shadow-[0_10px_30px_-6px_rgb(77_141_247/0.7)] transition active:scale-95 lg:hidden"
-    >
-      <Plus className="size-7" strokeWidth={2.5} />
-    </button>
+    <>
+      {menu && <button aria-label="Закрыть меню" onClick={() => setMenu(false)} className="fixed inset-0 z-40 bg-black/20 lg:hidden" />}
+      {menu && (
+        <div className={`${pos} mb-[68px] flex flex-col items-end gap-2`}>
+          <button onClick={() => { setMenu(false); window.dispatchEvent(new Event("nastroy:new-note")); }} className={item}>
+            <NotebookPen className="size-5 text-accent" /> Новая заметка
+          </button>
+          <button onClick={() => { setMenu(false); openMood(); }} className={item}>
+            <Smile className="size-5 text-accent" /> Отметить настроение
+          </button>
+        </div>
+      )}
+      <button
+        onClick={() => setMenu((v) => !v)}
+        aria-label={menu ? "Закрыть меню" : "Добавить"}
+        aria-expanded={menu}
+        className={`${pos} flex size-14 items-center justify-center rounded-[20px] bg-accent text-white shadow-[0_10px_30px_-6px_rgb(77_141_247/0.7)] transition active:scale-95`}
+      >
+        <Plus className={`size-7 transition-transform ${menu ? "rotate-45" : ""}`} strokeWidth={2.5} />
+      </button>
+    </>
   );
 }
 

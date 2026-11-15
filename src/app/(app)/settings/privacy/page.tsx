@@ -1,5 +1,5 @@
 "use client";
-import { Users, Globe, Lock, Heart } from "lucide-react";
+import { Users, Globe, Lock, Heart, NotebookPen } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Toggle } from "@/components/ui/Toggle";
@@ -145,6 +145,30 @@ export default function PrivacyPage() {
               {s.support_view === "owner" && s.support_write !== "none" && (
                 <p className="mt-3 rounded-2xl bg-surface-2 px-3 py-2.5 text-[13px] text-text-2">
                   Писать смогут, а увидишь сообщения только ты — получится личный ящик тёплых слов.
+                </p>
+              )}
+            </Card>
+            <Card>
+              <p className="mb-1 flex items-center gap-2 text-[15px] font-bold">
+                <NotebookPen className="size-[18px] text-muted" /> Заметки в дневнике
+              </p>
+              <p className="mb-3 text-[13px] text-muted">Свободные записи из раздела «Заметки». По умолчанию их видишь только ты.</p>
+              <div role="radiogroup" aria-label="Кто читает заметки дневника" className="flex flex-wrap gap-2">
+                {([["me", "Только я"], ["friends", "Друзья"], ["all", "Все"]] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    role="radio"
+                    aria-checked={s.journal_visibility === v}
+                    onClick={() => set({ journal_visibility: v })}
+                    className={`h-10 rounded-full px-4 text-sm font-semibold transition active:scale-95 ${s.journal_visibility === v ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {s.journal_visibility !== "me" && (
+                <p className="mt-3 rounded-2xl bg-surface-2 px-3 py-2.5 text-[13px] text-text-2">
+                  {s.journal_visibility === "friends" ? "Заметки смогут читать твои друзья." : "Заметки смогут читать все пользователи сервиса."} Администратор заметки не читает.
                 </p>
               )}
             </Card>
