@@ -91,6 +91,8 @@ export interface PrivacySettings {
   /** Окно поддержки: кто может писать / кто видит сообщения */
   support_write: "all" | "friends" | "none";
   support_view: "all" | "friends" | "owner";
+  /** Заметки в дневнике: кто может читать */
+  journal_visibility: "me" | "friends" | "all";
 }
 
 /** Статус пользователя: цветная пометка рядом с именем */

@@ -1,6 +1,7 @@
 "use client";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { StatsView } from "@/components/stats/StatsView";
+import { ReflectionStats } from "@/components/reflection/ReflectionStats";
 import { MonthCard } from "@/components/stats/MonthCard";
 import { Skeleton, ErrorState } from "@/components/ui/States";
 import { useMyEntries } from "@/hooks/data";
@@ -22,7 +23,7 @@ export default function StatsPage() {
       ) : error ? (
         <ErrorState text={humanError(error)} onRetry={refetch} />
       ) : (
-        <StatsView entries={entries} extra={<MonthCard entries={entries} name={profile?.display_name ?? ""} />} />
+        <StatsView entries={entries} extra={<><ReflectionStats /><MonthCard entries={entries} name={profile?.display_name ?? ""} /></>} />
       )}
     </>
   );

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
 import { StatsView } from "@/components/stats/StatsView";
+import { ReflectionStats } from "@/components/reflection/ReflectionStats";
+import { ReflectionCard } from "@/components/reflection/ReflectionCard";
 import { BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -58,6 +60,7 @@ export default function HomePage() {
       <div className="flex flex-col gap-5 lg:hidden">
         {todayBlock}
         <FriendsMoods />
+        <ReflectionCard />
         {monthBlock}
         {weekBlock}
         <Button variant="outline" size="lg" onClick={() => setStatsOpen(true)}>
@@ -65,13 +68,14 @@ export default function HomePage() {
         </Button>
       </div>
       <Sheet open={statsOpen} onClose={() => setStatsOpen(false)} title="Статистика" wide>
-        <StatsView entries={entries} showInsights={false} />
+        <StatsView entries={entries} showInsights={false} extra={<ReflectionStats />} />
       </Sheet>
       {/* Компьютер: слева отметка, сегодня и друзья, справа месяц и лента; неделя — внизу на всю ширину */}
       <div className="hidden gap-6 lg:grid lg:grid-cols-12 lg:items-start">
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-7">
           {todayBlock}
           <FriendsMoods />
+          <ReflectionCard />
         </div>
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-5">
           {monthBlock}

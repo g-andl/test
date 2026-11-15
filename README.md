@@ -129,11 +129,11 @@ npm run test:e2e && npm run test:e2e:admin && npm run test:e2e:support && npm ru
 
 ## Первый администратор
 
-Администратор — обычный аккаунт, отмеченный в таблице `admins`. После регистрации аккаунта выполни в SQL Editor Supabase
+Администратор — обычный аккаунт, отмеченный в таблице `admins` (`owner = true` — владелец, он назначает остальных администраторов; `service = true` — отдельный служебный аккаунт, скрытый в соцсети). После регистрации аккаунта выполни в SQL Editor Supabase
 (подставь id пользователя из `auth.users`):
 
 ```sql
-insert into public.admins (user_id) values ('<id пользователя>');
+insert into public.admins (user_id, service, owner) values ('<id пользователя>', false, true);
 ```
 
 Имена с `admin`, `support`, `moder`, `nastroy` (а также `root`, `system`, `help`) обычным пользователям недоступны. Чтобы дать

@@ -302,6 +302,11 @@ test('обычный аккаунт с правами администратор
   assert.ok(!fr.error, `в друзья добавлять можно: ${fr.error?.message}`);
   const toService = await hyb.c.rpc('send_friend_request', { p_addressee: boss.id });
   assert.ok(toService.error, 'служебного администратора в друзья по-прежнему нельзя');
+  // свою отметку такой администратор ставить может, служебный — нет
+  const mine = await hyb.c.from('mood_entries').insert({ user_id: hyb.id, entry_date: '2026-11-14', mood_value: 4, mood_time: new Date().toISOString(), day_part: 'day' });
+  assert.ok(!mine.error, `своя отметка: ${mine.error?.message}`);
+  const svc = await boss.c.from('mood_entries').insert({ user_id: boss.id, entry_date: '2026-11-14', mood_value: 4, mood_time: new Date().toISOString(), day_part: 'day' });
+  assert.ok(svc.error, 'служебному аккаунту отметки по-прежнему нельзя');
   // обычный пользователь прав не получает
   assert.equal((await other.c.rpc('am_i_admin')).data, false);
 });

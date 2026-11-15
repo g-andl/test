@@ -237,3 +237,60 @@ test('удаление аккаунта удаляет данные каскад
   const { data } = await admin.from('profiles').select('id').eq('id', stranger.id);
   assert.equal(data.length, 0);
 });
+
+test('итоги дня видит только их автор', async () => {
+  // свои итоги можно писать и читать
+  const day = '2026-11-14';
+  const mine = await masha.c.from('day_reflections').upsert({ user_id: masha.id, day, good: 'кофе', bad: 'дождь', insight: 'надо спать', rating: 4 }, { onConflict: 'user_id,day' });
+  assert.ok(!mine.error, mine.error?.message);
+  const own = await masha.c.from('day_reflections').select('*').eq('user_id', masha.id);
+  assert.equal(own.data.length, 1);
+  // частичное обновление не затирает остальное
+  await masha.c.from('day_reflections').upsert({ user_id: masha.id, day, rating: 5 }, { onConflict: 'user_id,day' });
+  const upd = await masha.c.from('day_reflections').select('good, rating').eq('user_id', masha.id).single();
+  assert.equal(upd.data.good, 'кофе');
+  assert.equal(upd.data.rating, 5);
+  // чужие итоги не видны, даже друзьям; писать за другого нельзя
+  const peek = await dima.c.from('day_reflections').select('*').eq('user_id', masha.id);
+  assert.equal(peek.data.length, 0, 'другие пользователи итоги не видят');
+  const forge = await dima.c.from('day_reflections').insert({ user_id: masha.id, day: '2026-11-13', good: 'подделка' });
+  assert.ok(forge.error, 'за другого писать нельзя');
+  const bad = await masha.c.from('day_reflections').insert({ user_id: masha.id, day: '2026-11-12', rating: 9 });
+  assert.ok(bad.error, 'оценка только от 1 до 5');
+});
+
+test('заметки дневника: по умолчанию только автору, открываются в настройках', async () => {
+  const note = await masha.c.from('journal_notes').insert({ user_id: masha.id, title: 'Про день', body: 'Длинная мысль '.repeat(500) }).select().single();
+  assert.ok(!note.error, note.error?.message);
+  assert.equal((await masha.c.from('journal_notes').select('id').eq('user_id', masha.id)).data.length, 1);
+  assert.equal((await dima.c.from('journal_notes').select('id').eq('user_id', masha.id)).data.length, 0, 'по умолчанию чужие не видят');
+  assert.equal((await anon.from('journal_notes').select('id')).data?.length ?? 0, 0, 'анонимно недоступно');
+
+  await masha.c.from('privacy_settings').update({ journal_visibility: 'friends' }).eq('user_id', masha.id);
+  assert.equal((await stranger.c.from('journal_notes').select('id').eq('user_id', masha.id)).data.length, 0, 'для друзей — посторонний не видит');
+
+  await masha.c.from('privacy_settings').update({ journal_visibility: 'all' }).eq('user_id', masha.id);
+  assert.equal((await stranger.c.from('journal_notes').select('id').eq('user_id', masha.id)).data.length, 1, 'открыто всем');
+  const edit = await stranger.c.from('journal_notes').update({ body: 'взлом' }).eq('id', note.data.id).select();
+  assert.equal(edit.data?.length ?? 0, 0, 'чужую заметку менять нельзя');
+  const forge = await dima.c.from('journal_notes').insert({ user_id: masha.id, body: 'подделка' });
+  assert.ok(forge.error, 'писать от чужого имени нельзя');
+  await masha.c.from('privacy_settings').update({ journal_visibility: 'me' }).eq('user_id', masha.id);
+  assert.equal((await stranger.c.from('journal_notes').select('id').eq('user_id', masha.id)).data.length, 0, 'снова закрыто');
+});
+
+test('группы заметок: только свои, заметка не может уйти в чужую группу', async () => {
+  const g = await masha.c.from('journal_groups').insert({ user_id: masha.id, name: 'Личное' }).select().single();
+  assert.ok(!g.error, g.error?.message);
+  const dup = await masha.c.from('journal_groups').insert({ user_id: masha.id, name: ' личное ' });
+  assert.ok(dup.error, 'одинаковые названия запрещены');
+  const own = await masha.c.from('journal_notes').insert({ user_id: masha.id, body: 'в группе', group_id: g.data.id });
+  assert.ok(!own.error, own.error?.message);
+  const alien = await dima.c.from('journal_notes').insert({ user_id: dima.id, body: 'чужая группа', group_id: g.data.id });
+  assert.ok(alien.error, 'нельзя положить заметку в чужую группу');
+  assert.equal((await dima.c.from('journal_groups').select('id').eq('user_id', masha.id)).data.length, 0, 'чужие группы закрыты');
+  // удаление группы оставляет заметки
+  await masha.c.from('journal_groups').delete().eq('id', g.data.id);
+  const left = await masha.c.from('journal_notes').select('group_id').eq('body', 'в группе').single();
+  assert.equal(left.data.group_id, null);
+});
