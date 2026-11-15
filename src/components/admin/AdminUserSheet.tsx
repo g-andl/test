@@ -13,7 +13,7 @@ import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, amIOwner, adminSetAdmin,
+  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, amIOwner, adminSetAdmin, adminListUsers,
 } from "@/lib/api";
 import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
 import { formatRelativeDay, formatTime, todayKey, combineDateTime, plural } from "@/lib/dates";
@@ -545,6 +545,72 @@ function BlockSection({ user, onChanged }: { user: AdminUser; onChanged: () => v
 
 
 /** Окно поддержки пользователя: админ видит всё, правит, удаляет и добавляет сообщения от имени любого пользователя */
+/** Поле автора с подсказками: по первым буквам имени или ника показывает похожих пользователей */
+function AuthorPicker({ value, onChange, excludeId }: { value: string; onChange: (username: string) => void; excludeId: string }) {
+  const [text, setText] = useState(value);
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(text.trim()), 250);
+    return () => clearTimeout(t);
+  }, [text]);
+
+  const found = useQuery(open && search.length >= 2 ? `admin-suggest:${search}` : null, () => adminListUsers(search, 8));
+  const list = (found.data ?? []).filter((u) => u.id !== excludeId && u.username);
+
+  return (
+    <div className="relative mb-2">
+      <input
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+          // Пока человек не выбран из списка, автором считается введённый ник
+          onChange(e.target.value.trim().toLowerCase().replace(/^@/, ""));
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Автор: начни вводить имя или ник"
+        aria-label="Автор сообщения"
+        autoCapitalize="none"
+        autoComplete="off"
+        className="h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+      />
+      {open && search.length >= 2 && (
+        <ul role="listbox" aria-label="Похожие пользователи" className="mt-1 max-h-56 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-card">
+          {found.loading ? (
+            <li className="px-3 py-2 text-sm text-muted">Ищу…</li>
+          ) : !list.length ? (
+            <li className="px-3 py-2 text-sm text-muted">Никого не нашлось</li>
+          ) : (
+            list.map((u) => (
+              <li key={u.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={value === u.username}
+                  onClick={() => {
+                    onChange(u.username!);
+                    setText(`${u.display_name} (@${u.username})`);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-surface-2"
+                >
+                  <Avatar src={u.avatar_url} name={u.display_name ?? "?"} size={32} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{u.display_name}</span>
+                    <span className="block truncate text-xs text-muted">@{u.username}</span>
+                  </span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SupportSection({ user }: { user: AdminUser }) {
   const toast = useToast();
   const wall = useQuery(keys.support(user.id), () => fetchSupportWall(user.id));
@@ -636,14 +702,7 @@ function SupportSection({ user }: { user: AdminUser }) {
 
       <div className="mt-3 rounded-[20px] border-2 border-dashed border-line p-3">
         <p className="mb-2 text-sm font-bold">Добавить сообщение от имени пользователя</p>
-        <input
-          value={author}
-          onChange={(e) => setAuthor(e.target.value.toLowerCase().replace(/\s/g, ""))}
-          placeholder="Имя пользователя автора, например masha_k"
-          aria-label="Автор сообщения"
-          autoCapitalize="none"
-          className="mb-2 h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent"
-        />
+        <AuthorPicker value={author} onChange={setAuthor} excludeId={user.id} />
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, 500))}
