@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Проверка браузера — Настрой</title>
+<style>
+  body{font:16px/1.5 system-ui,sans-serif;margin:0;padding:24px;background:#f3f4f8;color:#111}
+  main{max-width:720px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 4px}
+  p{margin:4px 0 16px;color:#555}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden}
+  td{padding:10px 14px;border-bottom:1px solid #eee;vertical-align:top;font-size:15px}
+  td:last-child{font-weight:700;white-space:nowrap}
+  .ok{color:#15803d}.bad{color:#b91c1c}
+  pre{background:#fff;padding:12px;border-radius:12px;white-space:pre-wrap;word-break:break-all;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Проверка браузера</h1>
+  <p>Сделай скриншот этой страницы целиком и пришли в чат.</p>
+  <table id="t"></table>
+  <h2 style="font-size:18px;margin:24px 0 8px">Данные</h2>
+  <pre id="info"></pre>
+</main>
+<script>
+(async function () {
+  var rows = [], t = document.getElementById("t");
+  function add(name, ok, extra) { rows.push([name, ok, extra || ""]); }
+  var base = location.pathname.replace(/diag\/?(index\.html)?$/, "");
+  var info = ["Браузер: " + navigator.userAgent, "Ширина окна: " + innerWidth + " px, масштаб экрана: " + devicePixelRatio, "Язык: " + navigator.language];
+
+  // Возможности CSS, на которых построен сайт
+  add("Каскадные слои (@layer)", typeof CSSLayerBlockRule !== "undefined");
+  add("Смешивание цветов (color-mix)", CSS.supports("color", "color-mix(in srgb, red 50%, blue)"));
+  add("Переменные в calc()", CSS.supports("width", "calc(var(--a, 1px) * 2)"));
+  add("Регистрация переменных (@property)", typeof CSS.registerProperty === "function");
+  add("Селектор :has()", CSS.supports("selector(:has(a))"));
+  add("Современные цвета (oklch)", CSS.supports("color", "oklch(0.5 0.1 200)"));
+
+  // Загружаем настоящий файл стилей сайта и смотрим, как его разобрал браузер
+  try {
+    var html = await (await fetch(base + "login/", { cache: "no-store" })).text();
+    var m = html.match(/href="([^"]+\.css[^"]*)"/);
+    if (!m) throw new Error("файл стилей не найден в странице входа");
+    var cssUrl = new URL(m[1], location.origin + base).href;
+    var css = await (await fetch(cssUrl, { cache: "no-store" })).text();
+    info.push("Файл стилей: " + cssUrl + " (" + css.length + " байт)");
+    var sheet = new CSSStyleSheet();
+    sheet.replaceSync(css);
+    var count = 0, found = {};
+    var want = [".px-4", ".font-extrabold", ".text-accent", ".tracking-tight", ".h-14", ".rounded-2xl", ".bg-accent"];
+    (function walk(rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i]; count++;
+        if (r.selectorText) want.forEach(function (w) { if (r.selectorText.split(",").some(function (s) { return s.trim() === w; })) found[w] = true; });
+        if (r.cssRules) walk(r.cssRules);
+      }
+    })(sheet.cssRules);
+    add("Стили сайта разобраны", count > 500, count + " правил");
+    want.forEach(function (w) { add("Правило " + w, !!found[w]); });
+
+    // Применяем стили к тестовым элементам и смотрим итог
+    var link = document.createElement("link"); link.rel = "stylesheet"; link.href = cssUrl;
+    document.head.appendChild(link);
+    await new Promise(function (res) { link.onload = res; link.onerror = res; setTimeout(res, 3000); });
+    var box = document.createElement("div");
+    box.innerHTML = '<h1 class="text-[30px] font-extrabold text-accent" style="all:unset">x</h1><div id="a" class="text-[30px] font-extrabold tracking-tight text-accent">x</div><input id="b" class="px-4 h-14">';
+    box.style.cssText = "position:absolute;left:-9999px";
+    document.body.appendChild(box);
+    var cs = getComputedStyle(document.getElementById("a"));
+    var ci = getComputedStyle(document.getElementById("b"));
+    add("Заголовок 30px", cs.fontSize === "30px", cs.fontSize);
+    add("Заголовок жирный (800)", cs.fontWeight === "800", cs.fontWeight);
+    add("Акцентный цвет", cs.color === "rgb(77, 141, 247)", cs.color);
+    add("Отступы в поле ввода", ci.paddingLeft === "16px", ci.paddingLeft);
+  } catch (e) {
+    add("Загрузка стилей сайта", false, String(e));
+  }
+
+  t.innerHTML = rows.map(function (r) {
+    return "<tr><td>" + r[0] + "</td><td class=\"" + (r[1] ? "ok" : "bad") + "\">" + (r[1] ? "да" : "НЕТ") + (r[2] ? " (" + r[2] + ")" : "") + "</td></tr>";
+  }).join("");
+  document.getElementById("info").textContent = info.join("\n");
+})();
+</script>
+</body>
+</html>
