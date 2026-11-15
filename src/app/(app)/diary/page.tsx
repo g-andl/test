@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { SearchX, BookOpen } from "lucide-react";
+import { SearchX, BookOpen, Plus } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented, Chip } from "@/components/ui/Segmented";
 import { Card } from "@/components/ui/Card";
@@ -66,7 +66,15 @@ export default function DiaryPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Личное" title="Мой дневник" />
+      <PageHeader
+        eyebrow="Личное"
+        title="Мой дневник"
+        actions={
+          <Button className="hidden lg:inline-flex" onClick={() => openMood()}>
+            <Plus className="size-5" /> Отметить настроение
+          </Button>
+        }
+      />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Segmented
           ariaLabel="Режим дневника"
