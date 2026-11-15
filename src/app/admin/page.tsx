@@ -337,8 +337,8 @@ export default function AdminPage() {
               <LogOut className="size-4" /> Выйти
             </Button>
           ) : (
-            <Button size="sm" variant="ghost" onClick={() => router.push("/profile/")}>
-              <ArrowLeft className="size-4" /> В приложение
+            <Button size="sm" variant="ghost" onClick={() => router.push("/")}>
+              <ArrowLeft className="size-4" /> Главная
             </Button>
           )}
         </div>
