@@ -76,6 +76,21 @@
     add("Заголовок жирный (800)", cs.fontWeight === "800", cs.fontWeight);
     add("Акцентный цвет", cs.color === "rgb(77, 141, 247)", cs.color);
     add("Отступы в поле ввода", ci.paddingLeft === "16px", ci.paddingLeft);
+    // Уточнение: где именно теряются отступы
+    var box2 = document.createElement("div");
+    box2.style.cssText = "position:absolute;left:-9999px";
+    box2.innerHTML = '<div id="t1" class="px-4">x</div><input id="t2" style="padding-inline:16px"><input id="t3" style="padding-left:16px"><input id="t4" class="pl-12"><textarea id="t5" class="px-4"></textarea><button id="t6" class="px-4">x</button><input id="t7" class="px-4" type="password"><span id="t8" class="mx-4" style="display:block">x</span>';
+    document.body.appendChild(box2);
+    var pl = function (id) { return getComputedStyle(document.getElementById(id)).paddingLeft; };
+    add("Блок с классом px-4", pl("t1") === "16px", pl("t1"));
+    add("Поле: отступ стилем padding-inline", pl("t2") === "16px", pl("t2"));
+    add("Поле: отступ стилем padding-left", pl("t3") === "16px", pl("t3"));
+    add("Поле с классом pl-12", pl("t4") === "48px", pl("t4"));
+    add("Текстовая область px-4", pl("t5") === "16px", pl("t5"));
+    add("Кнопка px-4", pl("t6") === "16px", pl("t6"));
+    add("Поле пароля px-4", pl("t7") === "16px", pl("t7"));
+    var ml = getComputedStyle(document.getElementById("t8")).marginLeft;
+    add("Внешний отступ mx-4", ml === "16px", ml);
   } catch (e) {
     add("Загрузка стилей сайта", false, String(e));
   }

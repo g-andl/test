@@ -148,7 +148,9 @@ try {
   await sheet.getByRole("button", { name: "Сохранить" }).last().click();
   await a.page.getByText("Сообщение изменено").waitFor();
   await sheet.getByText("правлено админом", { exact: true }).waitFor();
-  await sheet.getByLabel("Автор сообщения").fill(`wr_${run}`);
+  // Подсказки: по первым буквам ника показывается список, выбор подставляет автора
+  await sheet.getByLabel("Автор сообщения").fill(`wr_${run}`.slice(0, 5));
+  await sheet.getByRole("option", { name: new RegExp(`@wr_${run}`) }).click();
   await sheet.getByLabel("Текст нового сообщения").fill("добавлено от чужого имени");
   await sheet.getByRole("button", { name: "Добавить", exact: true }).last().click();
   await a.page.getByText("Сообщение добавлено").waitFor();
