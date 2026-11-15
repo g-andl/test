@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/unwrap-supports.mjs",
     "lint": "eslint",
     "test:db": "node --test tests/backend/rls.test.mjs",
     "test:e2e": "node tests/e2e/flow.mjs",

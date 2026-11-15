@@ -13,12 +13,13 @@ import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser,
+  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, amIOwner, adminSetAdmin,
 } from "@/lib/api";
 import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
 import { formatRelativeDay, formatTime, todayKey, combineDateTime } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import { usePhoto } from "@/hooks/data";
+import { useAuth } from "@/components/providers/AuthProvider";
 import type { AdminUser, MoodEntry } from "@/lib/types";
 
 const VIS: Record<string, string> = { all: "видят всё", latest: "только последнее", none: "закрытый профиль" };
@@ -362,6 +363,56 @@ const BLOCK_PRESETS = [
 ] as const;
 
 /** Блокировка: на срок или навсегда. Заблокированный входит, но видит только экран блокировки. */
+/** Назначить или снять администратора. Видна только владельцу сервиса; база это проверяет ещё раз. */
+function AdminRightsSection({ user, onChanged }: { user: AdminUser; onChanged: () => void }) {
+  const toast = useToast();
+  const { profile } = useAuth();
+  const owner = useQuery(profile ? `am-owner:${profile.id}` : null, amIOwner);
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!confirm) return;
+    const t = setTimeout(() => setConfirm(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirm]);
+
+  if (!owner.data || user.id === profile?.id) return null;
+  const make = !user.is_admin;
+
+  async function click() {
+    if (!confirm) {
+      setConfirm(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await adminSetAdmin(user.id, make);
+      toast(make ? "Назначен администратором" : "Права администратора сняты");
+      setConfirm(false);
+      onChanged();
+    } catch (e) {
+      toast(humanError(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 font-bold">Права администратора</h3>
+      <p className="mb-2 text-[13px] text-muted">
+        {make
+          ? "Получит доступ к админ-панели: аккаунты, заявки, блокировки, статусы. Остальное в его аккаунте не изменится."
+          : "Админ-панель у него пропадёт, аккаунт останется обычным."}
+      </p>
+      <Button size="sm" variant={make ? "secondary" : "danger"} loading={busy} onClick={click}>
+        <Shield className="size-4" /> {confirm ? (make ? "Точно назначить?" : "Точно снять?") : make ? "Назначить администратором" : "Снять права администратора"}
+      </Button>
+    </section>
+  );
+}
+
 function BlockSection({ user, onChanged }: { user: AdminUser; onChanged: () => void }) {
   const toast = useToast();
   const [preset, setPreset] = useState<(typeof BLOCK_PRESETS)[number]["id"]>("7d");
@@ -766,6 +817,7 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
         </Button>
       </section>
 
+      <AdminRightsSection user={user} onChanged={() => invalidate("admin-users")} />
       {!user.is_admin && <BlockSection key={user.id + String(user.is_blocked)} user={user} onChanged={() => invalidate("admin-users")} />}
       {!user.is_admin && <StatusSection user={user} />}
       <ContactEmailSection user={user} onSaved={() => invalidate("admin-users")} />
