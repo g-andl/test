@@ -168,7 +168,7 @@ export default function PrivacyPage() {
               </div>
               {s.journal_visibility !== "me" && (
                 <p className="mt-3 rounded-2xl bg-surface-2 px-3 py-2.5 text-[13px] text-text-2">
-                  {s.journal_visibility === "friends" ? "Заметки смогут читать твои друзья." : "Заметки смогут читать все пользователи сервиса."} Администратор заметки не читает.
+                  {s.journal_visibility === "friends" ? "Заметки смогут читать твои друзья." : "Заметки смогут читать все пользователи сервиса."}
                 </p>
               )}
             </Card>
