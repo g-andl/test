@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { KeyRound, Trash2, Save, Wand2, Plus, Mail, Shield, Clock, Ban, Heart, Pencil, Send } from "lucide-react";
+import { ArrowUpDown, CalendarDays, KeyRound, Trash2, Save, Wand2, Plus, Mail, Shield, Clock, Ban, Heart, Pencil, Send } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -16,7 +16,7 @@ import {
   adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, amIOwner, adminSetAdmin,
 } from "@/lib/api";
 import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
-import { formatRelativeDay, formatTime, todayKey, combineDateTime } from "@/lib/dates";
+import { formatRelativeDay, formatTime, todayKey, combineDateTime, plural } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import { usePhoto } from "@/hooks/data";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -302,6 +302,13 @@ function PrivacySection({ userId, onSaved }: { userId: string; onSaved: () => vo
   );
 }
 
+const two = (n: number) => String(n).padStart(2, "0");
+const logDate = (iso: string) => { const d = new Date(iso); return `${two(d.getDate())}.${two(d.getMonth() + 1)}.${d.getFullYear()}`; };
+const logTime = (iso: string) => { const d = new Date(iso); return `${two(d.getHours())}:${two(d.getMinutes())}`; };
+const totalDuration = (list: { started_at: string; last_seen_at: string }[]) => {
+  const min = Math.round(list.reduce((sum, x) => sum + (new Date(x.last_seen_at).getTime() - new Date(x.started_at).getTime()), 0) / 60000);
+  return min < 60 ? `${min} мин` : `${Math.floor(min / 60)} ч ${min % 60} мин`;
+};
 const shortDuration = (a: string, b: string) => {
   const min = Math.max(1, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000));
   return min < 60 ? `${min} мин` : `${Math.floor(min / 60)} ч ${min % 60} мин`;
@@ -334,20 +341,35 @@ function ActivitySection({ userId }: { userId: string }) {
           <button onClick={() => { setFrom(""); setTo(""); }} className="h-10 px-2 text-sm font-semibold text-accent">Сбросить</button>
         )}
       </div>
-      {q.loading ? (
-        <div className="flex justify-center py-3"><Spinner /></div>
-      ) : !shown.length ? (
-        <p className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">{from || to ? "За выбранные даты заходов нет" : "Заходов пока нет"}</p>
-      ) : (
-        <ul className="divide-y divide-line rounded-2xl bg-surface-2 px-4">
-          {shown.map((x) => (
-            <li key={x.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-              <span className="font-semibold">{fmtDateTime(x.started_at)}</span>
-              <span className="text-muted">{shortDuration(x.started_at, x.last_seen_at)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* Журнал в виде консоли: тёмный фон, моноширинный шрифт, по строке на заход */}
+      <div className="overflow-hidden rounded-2xl bg-[#0d1321] font-mono text-[12.5px] leading-relaxed text-[#c9d4e5] shadow-card">
+        <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
+          <span className="size-2.5 rounded-full bg-[#ff5f57]" />
+          <span className="size-2.5 rounded-full bg-[#febc2e]" />
+          <span className="size-2.5 rounded-full bg-[#28c840]" />
+          <span className="ml-2 text-[11px] text-white/50">activity.log</span>
+          {q.data && <span className="ml-auto text-[11px] text-white/50">{sessions.length} {plural(sessions.length, ["заход", "захода", "заходов"])} · {totalDuration(sessions)}</span>}
+        </div>
+        <div className="max-h-72 overflow-y-auto px-3 py-2">
+          {q.loading ? (
+            <p className="text-white/50">загрузка…</p>
+          ) : !shown.length ? (
+            <p className="text-white/50">{from || to ? "за выбранные даты заходов нет" : "заходов пока нет"}</p>
+          ) : (
+            <ul>
+              {shown.map((x) => (
+                <li key={x.id} className="flex gap-2 whitespace-nowrap">
+                  <span className="text-[#7c8aa5]">{logDate(x.started_at)}</span>
+                  <span className="text-[#5ee58f]">{logTime(x.started_at)}</span>
+                  <span className="text-white/40">→</span>
+                  <span>{logTime(x.last_seen_at)}</span>
+                  <span className="ml-auto text-[#f5c26b]">{shortDuration(x.started_at, x.last_seen_at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
       {sessions.length > 50 && <p className="mt-1 text-xs text-muted">Показаны последние 50 заходов — сузь даты поиска.</p>}
     </section>
   );
@@ -735,6 +757,80 @@ function StatusSection({ user }: { user: AdminUser }) {
 }
 
 /** Всё о пользователе: данные, смена пароля, редактирование, отметки, удаление */
+/** Отметки пользователя: раскрываются кнопкой, группируются по дням, фильтруются по датам */
+function EntriesPanel({ entries, loading, onChanged }: { entries: MoodEntry[]; loading: boolean; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [limit, setLimit] = useState(30);
+
+  if (loading) return <div className="flex justify-center py-6"><Spinner /></div>;
+  if (!entries.length) return <p className="text-sm text-muted">Отметок нет</p>;
+  if (!open) {
+    return (
+      <Button variant="secondary" block onClick={() => setOpen(true)}>
+        <CalendarDays className="size-4" /> Открыть все отметки ({entries.length})
+      </Button>
+    );
+  }
+
+  const filtered = entries
+    .filter((e) => (!from || e.entry_date >= from) && (!to || e.entry_date <= to))
+    .sort((a, b) => (newestFirst ? 1 : -1) * (b.entry_date.localeCompare(a.entry_date) || b.mood_time.localeCompare(a.mood_time)));
+  const shown = filtered.slice(0, limit);
+  const days: { date: string; items: MoodEntry[] }[] = [];
+  for (const e of shown) {
+    const last = days[days.length - 1];
+    if (last && last.date === e.entry_date) last.items.push(e);
+    else days.push({ date: e.entry_date, items: [e] });
+  }
+  const dateCls = "h-10 rounded-xl bg-surface-2 px-2 text-[15px] text-text outline-none focus:ring-2 focus:ring-accent";
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <label className="flex items-center gap-1.5 text-muted">
+          с
+          <input type="date" value={from} max={to || todayKey()} onChange={(e) => { setFrom(e.target.value); setLimit(30); }} aria-label="Отметки с даты" className={dateCls} />
+        </label>
+        <label className="flex items-center gap-1.5 text-muted">
+          по
+          <input type="date" value={to} min={from || undefined} max={todayKey()} onChange={(e) => { setTo(e.target.value); setLimit(30); }} aria-label="Отметки по дату" className={dateCls} />
+        </label>
+        {(from || to) && (
+          <button onClick={() => { setFrom(""); setTo(""); }} className="h-10 px-2 text-sm font-semibold text-accent">Сбросить</button>
+        )}
+        <button onClick={() => setNewestFirst((v) => !v)} className="ml-auto flex h-10 items-center gap-1 rounded-xl bg-surface-2 px-3 text-sm font-semibold">
+          <ArrowUpDown className="size-4" /> {newestFirst ? "Сначала новые" : "Сначала старые"}
+        </button>
+      </div>
+      {!filtered.length ? (
+        <p className="rounded-2xl bg-surface-2 px-4 py-3 text-sm text-muted">За выбранные даты отметок нет</p>
+      ) : (
+        days.map((d) => (
+          <div key={d.date} className="mb-3">
+            <p className="mb-1.5 text-xs font-bold text-muted">
+              {new Date(`${d.date}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", weekday: "short" })} · {d.items.length}
+            </p>
+            <ul className="flex flex-col gap-2">
+              {d.items.map((e) => (
+                <EntryEditor key={e.id + e.updated_at} entry={e} onChanged={onChanged} />
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+      {filtered.length > limit && (
+        <Button variant="secondary" block onClick={() => setLimit((n) => n + 30)}>
+          Показать ещё ({filtered.length - limit})
+        </Button>
+      )}
+      <button onClick={() => setOpen(false)} className="mt-2 flex h-10 w-full items-center justify-center text-sm font-semibold text-accent">Свернуть</button>
+    </div>
+  );
+}
+
 export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
   const toast = useToast();
   const entries = useQuery(user ? `admin-entries:${user.id}` : null, () => adminUserEntries(user!.id));
@@ -819,11 +915,11 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
 
       <AdminRightsSection user={user} onChanged={() => invalidate("admin-users")} />
       {!user.is_admin && <BlockSection key={user.id + String(user.is_blocked)} user={user} onChanged={() => invalidate("admin-users")} />}
-      {!user.is_admin && <StatusSection user={user} />}
+      <StatusSection user={user} />
       <ContactEmailSection user={user} onSaved={() => invalidate("admin-users")} />
       <PrivacySection userId={user.id} onSaved={() => invalidate("admin-users")} />
       <ActivitySection userId={user.id} />
-      {!user.is_admin && <SupportSection user={user} />}
+      <SupportSection user={user} />
 
       <section className="mt-5">
         <h3 className="mb-1 font-bold">Новый пароль</h3>
@@ -853,23 +949,15 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
 
       <section className="mt-5">
         <h3 className="mb-2 font-bold">Отметки {entries.data ? `(${entries.data.length})` : ""}</h3>
-        {!user.is_admin && (
-          <div className="mb-3">
-            <NewEntryForm userId={user.id} onCreated={() => { entries.refetch(); invalidate("admin-users"); }} />
-          </div>
-        )}
-        {entries.loading ? (
-          <div className="flex justify-center py-6"><Spinner /></div>
-        ) : !entries.data?.length ? (
-          <p className="text-sm text-muted">Отметок нет</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {entries.data.slice(0, 100).map((e) => (
-              <EntryEditor key={e.id + e.updated_at} entry={e} onChanged={() => { entries.refetch(); invalidate("admin-users"); }} />
-            ))}
-          </ul>
-        )}
-        {(entries.data?.length ?? 0) > 100 && <p className="mt-2 text-xs text-muted">Показаны последние 100 отметок.</p>}
+        <div className="mb-3">
+          <NewEntryForm userId={user.id} onCreated={() => { entries.refetch(); invalidate("admin-users"); }} />
+        </div>
+        <EntriesPanel
+          key={user.id}
+          entries={entries.data ?? []}
+          loading={entries.loading}
+          onChanged={() => { entries.refetch(); invalidate("admin-users"); }}
+        />
       </section>
 
       {!user.is_admin && (
