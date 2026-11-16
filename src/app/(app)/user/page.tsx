@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, ShieldCheck, UserPlus, Check, Clock3, BellOff, Bell, UserMinus, CalendarDays, BarChart3, Eye, ChevronLeft, ChevronRight, ChevronDown, NotebookPen } from "lucide-react";
+import { Lock, ShieldCheck, UserPlus, Check, Clock3, BellOff, Bell, UserMinus, CalendarDays, BarChart3, Eye, ChevronLeft, ChevronRight, ChevronDown, NotebookPen, Sunrise } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/State
 import { MonthCalendar } from "@/components/diary/MonthCalendar";
 import { EntryCard } from "@/components/diary/EntryCard";
 import { MoodCard } from "@/components/mood/MoodCard";
+import { ReflectionSummary } from "@/components/reflection/ReflectionStats";
 import { JournalReadList } from "@/components/journal/JournalNotes";
 import { StatsView } from "@/components/stats/StatsView";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
@@ -20,7 +21,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  fetchUserProfile, fetchUserEntries, fetchJournal, fetchJournalGroups, sendFriendRequest, acceptRequest, removeFriendship, setMuted, keys,
+  fetchUserProfile, fetchUserEntries, fetchJournal, fetchJournalGroups, fetchReflections, sendFriendRequest, acceptRequest, removeFriendship, setMuted, keys,
 } from "@/lib/api";
 import { moodOf } from "@/lib/mood";
 import { capitalize, formatLong, formatRelativeDay, formatTime, fromKey } from "@/lib/dates";
@@ -69,7 +70,7 @@ function UserProfile() {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [friendMenu, setFriendMenu] = useState(false);
   const [showMood, setShowMood] = useState(false);
-  const [panel, setPanel] = useState<"calendar" | "stats" | "notes" | null>(null);
+  const [panel, setPanel] = useState<"calendar" | "stats" | "notes" | "days" | null>(null);
   const [day, setDay] = useState<string | null>(null);
   const now = new Date();
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -81,6 +82,9 @@ function UserProfile() {
   // Заметки дневника: база отдаёт их только если автор открыл (друзьям или всем)
   const notesQ = useQuery(p && !p.is_admin ? keys.journal(p.id) : null, () => fetchJournal(p!.id));
   const notes = notesQ.data ?? [];
+  // Итоги дней: база отдаёт их, только если автор не закрыл (по умолчанию открыты)
+  const daysQ = useQuery(p && !p.is_admin ? keys.reflections(p.id) : null, () => fetchReflections(p!.id));
+  const days = daysQ.data ?? [];
   const groupsQ = useQuery(p && !p.is_admin && notes.length > 0 ? keys.journalGroups(p.id) : null, () => fetchJournalGroups(p!.id));
   const entriesQ = useQuery(wantEntries ? keys.userEntries(p!.id) : null, () => fetchUserEntries(p!.id));
   const entries = useMemo(() => entriesQ.data ?? [], [entriesQ.data]);
@@ -245,6 +249,11 @@ function UserProfile() {
             <NotebookPen className="size-5" /> Заметки ({notes.length})
           </Button>
         )}
+        {!p.is_admin && days.length > 0 && (
+          <Button variant="outline" size="lg" onClick={() => setPanel("days")}>
+            <Sunrise className="size-5" /> Итоги дней ({days.length})
+          </Button>
+        )}
         {p.access === "latest" && (
           <p className="flex items-center gap-2 px-1 text-[13px] text-muted">
             <Lock className="size-4" /> Календарь и статистику {p.display_name} показывает только друзьям
@@ -275,6 +284,10 @@ function UserProfile() {
             )}
           </>
         )}
+      </Sheet>
+
+      <Sheet open={panel === "days"} onClose={() => setPanel(null)} title={`Итоги дней: ${p.display_name}`} wide>
+        <ReflectionSummary list={days} />
       </Sheet>
 
       <Sheet open={panel === "notes"} onClose={() => setPanel(null)} title={`Заметки: ${p.display_name}`} wide>

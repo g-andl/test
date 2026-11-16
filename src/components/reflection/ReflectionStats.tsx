@@ -1,22 +1,28 @@
 "use client";
 import { useState } from "react";
-import { Lightbulb, Lock, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Lightbulb, ThumbsDown, ThumbsUp } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Stars, ratingLabel } from "./Stars";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useQuery } from "@/lib/query";
-import { fetchReflections, keys } from "@/lib/api";
+import { fetchReflections, keys, type DayReflection } from "@/lib/api";
+import { VisibilityNote } from "./VisibilityNote";
 import { plural, todayKey } from "@/lib/dates";
 
-/** Итоги дней в статистике: средняя оценка за месяц и последние записи о том, что радовало и огорчало */
+/** Мои итоги дней в статистике */
 export function ReflectionStats() {
   const { session } = useAuth();
   const uid = session?.user.id;
   const q = useQuery(uid ? keys.reflections(uid) : null, () => fetchReflections(uid!));
-  const [shown, setShown] = useState(5);
   const list = q.data ?? [];
   if (!uid || !list.length) return null;
+  return <ReflectionSummary list={list} own />;
+}
+
+/** Средняя оценка за месяц и последние записи о том, что радовало, огорчало и чему научило. Для своих и чужих (открытых) итогов. */
+export function ReflectionSummary({ list, own }: { list: DayReflection[]; own?: boolean }) {
+  const [shown, setShown] = useState(5);
 
   // Месяц считаем в момент рендера списком: последние 30 дней по ключу даты
   const t = new Date();
@@ -27,11 +33,13 @@ export function ReflectionStats() {
   const withText = list.filter((r) => r.good || r.bad || r.insight);
 
   return (
-    <Card className="mt-4">
+    <Card className={own ? "mt-4" : ""}>
       <CardTitle>Итоги дней</CardTitle>
-      <p className="-mt-3 mb-3 flex items-center gap-1.5 text-[13px] text-muted">
-        <Lock className="size-3.5" /> Видно только тебе
-      </p>
+      {own && (
+        <div className="-mt-3 mb-3">
+          <VisibilityNote />
+        </div>
+      )}
       {avg !== null && (
         <div className="mb-4 rounded-2xl bg-surface-2 p-4">
           <p className="text-xs text-muted">Средняя оценка за 30 дней</p>

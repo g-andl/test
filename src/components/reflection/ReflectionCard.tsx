@@ -1,6 +1,6 @@
 "use client";
 import { useId, useState } from "react";
-import { Lock } from "lucide-react";
+import { VisibilityNote } from "./VisibilityNote";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/States";
@@ -61,9 +61,7 @@ function ReflectionForm({ uid, saved }: { uid: string; saved: DayReflection | nu
   return (
     <Card>
       <h2 className="text-[19px] font-bold tracking-tight">Итоги дня</h2>
-      <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
-        <Lock className="size-3.5" /> Видно только тебе
-      </p>
+      <VisibilityNote />
 
       <p className="mb-1 mt-4 text-sm font-semibold text-text-2">Каким был день в целом?</p>
       <div className="flex flex-wrap items-center gap-x-3">

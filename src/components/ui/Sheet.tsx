@@ -11,8 +11,11 @@ export function Sheet({
   children,
   footer,
   wide,
+  centerTitle,
 }: {
   wide?: boolean;
+  /** Заголовок по центру (для спокойных экранов вроде дыхания) */
+  centerTitle?: boolean;
   open: boolean;
   onClose: () => void;
   title?: React.ReactNode;
@@ -86,7 +89,8 @@ export function Sheet({
               <span className="h-1.5 w-10 rounded-full bg-surface-3" />
             </div>
             <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-2 lg:pt-5" onPointerDown={(e) => drag.start(e)}>
-              <h2 id={titleId} className="text-lg font-bold tracking-tight">
+              {centerTitle && <span className="-ml-2 size-11 shrink-0" aria-hidden />}
+              <h2 id={titleId} className={`text-lg font-bold tracking-tight ${centerTitle ? "flex-1 text-center" : ""}`}>
                 {title}
               </h2>
               <button

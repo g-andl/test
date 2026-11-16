@@ -238,7 +238,7 @@ test('удаление аккаунта удаляет данные каскад
   assert.equal(data.length, 0);
 });
 
-test('итоги дня видит только их автор', async () => {
+test('итоги дня: по умолчанию видны всем, приватность настраивается', async () => {
   // свои итоги можно писать и читать
   const day = '2026-11-14';
   const mine = await masha.c.from('day_reflections').upsert({ user_id: masha.id, day, good: 'кофе', bad: 'дождь', insight: 'надо спать', rating: 4 }, { onConflict: 'user_id,day' });
@@ -250,9 +250,14 @@ test('итоги дня видит только их автор', async () => {
   const upd = await masha.c.from('day_reflections').select('good, rating').eq('user_id', masha.id).single();
   assert.equal(upd.data.good, 'кофе');
   assert.equal(upd.data.rating, 5);
-  // чужие итоги не видны, даже друзьям; писать за другого нельзя
+  // по умолчанию итоги видны всем, в приватности можно закрыть; писать за другого нельзя
   const peek = await dima.c.from('day_reflections').select('*').eq('user_id', masha.id);
-  assert.equal(peek.data.length, 0, 'другие пользователи итоги не видят');
+  assert.equal(peek.data.length, 1, 'по умолчанию итоги видят все');
+  await masha.c.from('privacy_settings').update({ reflections_visibility: 'friends' }).eq('user_id', masha.id);
+  assert.equal((await dima.c.from('day_reflections').select('*').eq('user_id', masha.id)).data.length, 0, 'для друзей — посторонний не видит');
+  await masha.c.from('privacy_settings').update({ reflections_visibility: 'me' }).eq('user_id', masha.id);
+  assert.equal((await masha.c.from('day_reflections').select('*').eq('user_id', masha.id)).data.length, 1, 'автор видит всегда');
+  assert.equal((await anon.from('day_reflections').select('*')).data?.length ?? 0, 0, 'анонимно недоступно');
   const forge = await dima.c.from('day_reflections').insert({ user_id: masha.id, day: '2026-11-13', good: 'подделка' });
   assert.ok(forge.error, 'за другого писать нельзя');
   const bad = await masha.c.from('day_reflections').insert({ user_id: masha.id, day: '2026-11-12', rating: 9 });
