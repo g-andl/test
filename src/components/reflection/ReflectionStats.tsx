@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Lightbulb, ThumbsDown, ThumbsUp } from "lucide-react";
+import Link from "next/link";
+import { Lightbulb, Sunrise, ThumbsDown, ThumbsUp } from "lucide-react";
+import { EmptyState, Skeleton } from "@/components/ui/States";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Stars, ratingLabel } from "./Stars";
@@ -89,5 +91,28 @@ export function ReflectionSummary({ list, own }: { list: DayReflection[]; own?: 
         </Button>
       )}
     </Card>
+  );
+}
+
+/** Вкладка «Итоги» в дневнике: вся история итогов дней */
+export function ReflectionHistory() {
+  const { session } = useAuth();
+  const uid = session?.user.id;
+  const q = useQuery(uid ? keys.reflections(uid) : null, () => fetchReflections(uid!));
+  if (q.loading && !q.data) return <Skeleton className="h-40" />;
+  if (!q.data?.length) {
+    return (
+      <EmptyState
+        icon={<Sunrise />}
+        title="Итогов дня пока нет"
+        text="Оцени день звёздами и ответь на вопросы в карточке «Итоги дня» на главной. Здесь соберётся вся история."
+        action={<Link href="/"><Button>На главную</Button></Link>}
+      />
+    );
+  }
+  return (
+    <div className="lg:max-w-2xl">
+      <ReflectionSummary list={q.data} own />
+    </div>
   );
 }

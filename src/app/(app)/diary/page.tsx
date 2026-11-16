@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { SearchX, BookOpen, Plus, NotebookPen } from "lucide-react";
+import { ReflectionHistory } from "@/components/reflection/ReflectionStats";
 import { JournalNotesOwn } from "@/components/journal/JournalNotes";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Segmented, Chip } from "@/components/ui/Segmented";
@@ -19,7 +20,7 @@ import { humanError } from "@/lib/errors";
 import type { MoodValue } from "@/lib/types";
 import { MoodEmoji } from "@/components/mood/MoodEmoji";
 
-type Mode = "feed" | "calendar" | "notes";
+type Mode = "feed" | "calendar" | "notes" | "days";
 type CalMode = "month" | "year";
 
 export default function DiaryPage() {
@@ -105,13 +106,16 @@ export default function DiaryPage() {
           options={[
             { value: "feed", label: "Лента" },
             { value: "notes", label: "Заметки" },
+            { value: "days", label: "Итоги" },
             { value: "calendar", label: "Календарь" },
           ]}
         />
       </div>
-      {mode !== "notes" && <div className="mb-5">{filters}</div>}
+      {mode !== "notes" && mode !== "days" && <div className="mb-5">{filters}</div>}
 
-      {mode === "notes" ? (
+      {mode === "days" ? (
+        <ReflectionHistory />
+      ) : mode === "notes" ? (
         <JournalNotesOwn newSignal={newNoteSignal} />
       ) : loading ? (
         <div className="flex flex-col gap-3">

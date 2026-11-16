@@ -11,6 +11,8 @@ import { NAV, isActive } from "./nav";
 import { useUnread } from "@/hooks/data";
 import { supabase } from "@/lib/supabase";
 import { invalidate } from "@/lib/query";
+import { isImpersonating } from "@/lib/impersonate";
+import { ImpersonationTab } from "./ImpersonationTab";
 import { keys, touchActivity, fetchBlockStatus } from "@/lib/api";
 import { BlockedScreen } from "@/components/BlockedScreen";
 import { useQuery } from "@/lib/query";
@@ -163,7 +165,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Для поддержки: когда пользователь заходил в приложение
   const uid = session?.user.id;
   useEffect(() => {
-    if (!uid) return;
+    // В чужом аккаунте (вход из админ-панели) заходы пользователю не засчитываем
+    if (!uid || isImpersonating()) return;
     touchActivity();
     const t = setInterval(() => document.visibilityState === "visible" && touchActivity(), 5 * 60 * 1000);
     const onVisible = () => document.visibilityState === "visible" && touchActivity();
@@ -189,7 +192,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (session && profile && block.data?.blocked) {
-    return <BlockedScreen status={block.data} onRecheck={recheckBlock} />;
+    return (
+      <>
+        <BlockedScreen status={block.data} onRecheck={recheckBlock} />
+        <ImpersonationTab />
+      </>
+    );
   }
 
   if (!ready || !session || !profile || block.loading || !profile.onboarded || profile.is_admin) {
@@ -210,6 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <Fab />
       <BottomNav />
+      <ImpersonationTab />
     </MoodSheetProvider>
   );
 }

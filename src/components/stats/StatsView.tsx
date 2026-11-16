@@ -210,20 +210,22 @@ export function StatsView({
                 const def = DAY_PARTS.find((d) => d.value === p.part)!;
                 const m = p.avg ? moodOf(p.avg) : null;
                 return (
-                  <li key={p.part} className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3.5">
-                    <span
-                      className="flex size-12 shrink-0 items-center justify-center rounded-2xl text-muted"
-                      style={{ background: m ? m.soft : "var(--surface-3)" }}
-                    >
-                      {m ? <MoodEmoji value={m.value} size={30} /> : "·"}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-bold">{def.label}</p>
-                      <p className="text-xs text-muted">{def.range}</p>
+                  <li key={p.part} className="flex min-w-0 flex-col gap-3 rounded-2xl bg-surface-2 p-3.5">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="flex size-12 shrink-0 items-center justify-center rounded-2xl text-muted"
+                        style={{ background: m ? m.soft : "var(--surface-3)" }}
+                      >
+                        {m ? <MoodEmoji value={m.value} size={30} /> : "·"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[15px] font-bold">{def.label}</p>
+                        <p className="whitespace-nowrap text-xs text-muted">{def.range}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-baseline justify-between gap-2 border-t border-line pt-2.5">
                       <p className="text-[17px] font-extrabold">{fmtAvg(p.avg)}</p>
-                      <p className="text-xs text-muted">{p.count} {plural(p.count, ["отметка", "отметки", "отметок"])}</p>
+                      <p className="whitespace-nowrap text-xs text-muted">{p.count} {plural(p.count, ["отметка", "отметки", "отметок"])}</p>
                     </div>
                   </li>
                 );
