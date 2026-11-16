@@ -82,7 +82,7 @@ function ReflectionForm({ uid, saved }: { uid: string; saved: DayReflection | nu
         onChange={(e) => setGood(e.target.value.slice(0, MAX))}
         rows={2}
         placeholder="Даже мелочь: вкусный кофе, хорошая новость"
-        className="max-h-60 w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
+        className="min-h-[88px] max-h-64 w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
       />
       <label htmlFor={`${uid2}-bad`} className="mb-1.5 mt-3 block text-sm font-semibold text-text-2">Что разочаровало или не понравилось?</label>
       <textarea
@@ -91,7 +91,7 @@ function ReflectionForm({ uid, saved }: { uid: string; saved: DayReflection | nu
         onChange={(e) => setBad(e.target.value.slice(0, MAX))}
         rows={2}
         placeholder="Что пошло не так, что огорчило"
-        className="max-h-60 w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
+        className="min-h-[88px] max-h-64 w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
       />
       <label htmlFor={`${uid2}-insight`} className="mb-1.5 mt-3 block text-sm font-semibold text-text-2">Что понял или чему научился?</label>
       <textarea
@@ -100,7 +100,7 @@ function ReflectionForm({ uid, saved }: { uid: string; saved: DayReflection | nu
         onChange={(e) => setInsight(e.target.value.slice(0, MAX))}
         rows={2}
         placeholder="Инсайт, вывод, что хочешь запомнить на будущее"
-        className="max-h-60 w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
+        className="min-h-[88px] max-h-64 w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
       />
       <div className="mt-3 flex items-center justify-between gap-3">
         <span className="text-[13px] text-muted">{!dirty && (lastSaved.good || lastSaved.bad || lastSaved.insight) ? "Сохранено" : ""}</span>

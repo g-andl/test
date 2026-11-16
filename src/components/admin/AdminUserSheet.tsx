@@ -84,7 +84,7 @@ function EntryEditor({ entry, onChanged }: { entry: MoodEntry; onChanged: () => 
         rows={2}
         placeholder="Без заметки"
         aria-label="Заметка"
-        className="w-full resize-y rounded-xl bg-surface px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+        className="min-h-20 max-h-64 w-full resize-y rounded-xl bg-surface px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
       />
       {photo.data && <img src={photo.data} alt="Фото к отметке" className="mt-2 max-h-48 rounded-xl object-cover" />}
       <div className="mt-2 flex gap-2">
@@ -172,7 +172,7 @@ function NewEntryForm({ userId, onCreated }: { userId: string; onCreated: () => 
         rows={2}
         placeholder="Заметка (необязательно)"
         aria-label="Заметка новой отметки"
-        className="w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+        className="min-h-20 max-h-64 w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
       />
       <div className="mt-2 flex gap-2">
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>Отмена</Button>
@@ -662,7 +662,7 @@ function SupportSection({ user }: { user: AdminUser }) {
                     onChange={(e) => setEditText(e.target.value.slice(0, 500))}
                     rows={3}
                     aria-label="Текст сообщения"
-                    className="w-full resize-y rounded-xl bg-surface px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+                    className="min-h-20 max-h-64 w-full resize-y rounded-xl bg-surface px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
                   />
                   <div className="mt-2 flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setEditId(null)} disabled={busy === m.id}>Отмена</Button>
@@ -709,7 +709,7 @@ function SupportSection({ user }: { user: AdminUser }) {
           rows={2}
           placeholder="Текст сообщения"
           aria-label="Текст нового сообщения"
-          className="w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
+          className="min-h-20 max-h-64 w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
         />
         <div className="mt-2 flex items-center justify-between gap-2">
           <span className="text-xs text-muted">{text.length}/500</span>

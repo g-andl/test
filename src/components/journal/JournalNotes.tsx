@@ -122,7 +122,7 @@ function Editor({ note, groups, defaultGroup, onClose }: { note: JournalNote | n
         placeholder="Что происходит? Пиши сколько нужно: здесь нет ограничения, как в отметках"
         aria-label="Текст заметки"
         rows={10}
-        className="min-h-[40vh] w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base leading-relaxed outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
+        className="min-h-[40vh] max-h-[70vh] w-full resize-y rounded-2xl border border-transparent bg-surface-2 px-4 py-3 text-base leading-relaxed outline-none placeholder:text-muted focus:border-accent focus:bg-surface"
       />
       <p className="text-right text-xs text-muted">{body.length.toLocaleString("ru-RU")} символов</p>
       <div className="flex items-center justify-between gap-3">
