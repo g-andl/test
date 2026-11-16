@@ -107,7 +107,7 @@ function RecoveryCard({ r, onOpenUser }: { r: RecoveryRequest; onOpenUser: (user
         rows={2}
         placeholder="Заметка администратора (видишь только ты)"
         aria-label="Заметка администратора"
-        className="mt-2 w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
+        className="mt-2 min-h-20 max-h-64 w-full resize-y rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
       />
       <div className="mt-2 flex flex-wrap gap-2">
         {r.status !== "in_progress" && r.status !== "done" && (
