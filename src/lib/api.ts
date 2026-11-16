@@ -270,6 +270,9 @@ export async function amIAdmin(): Promise<boolean> {
 export async function amIOwner(): Promise<boolean> {
   return Boolean(check(await supabase.rpc("am_i_owner")));
 }
+export async function adminImpersonationLog(userId: string): Promise<{ created_at: string }[]> {
+  return (check(await supabase.rpc("admin_impersonation_log", { p_user: userId })) ?? []) as { created_at: string }[];
+}
 export async function adminSetAdmin(userId: string, admin: boolean) {
   check(await supabase.rpc("admin_set_admin", { p_user: userId, p_admin: admin }));
 }

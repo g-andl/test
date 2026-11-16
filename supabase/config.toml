@@ -428,3 +428,6 @@ enabled = true
 # Push-функцию вызывает триггер базы с общим секретом, а не пользователь с JWT
 [functions.send-push]
 verify_jwt = false
+
+[functions.admin-impersonate]
+verify_jwt = true

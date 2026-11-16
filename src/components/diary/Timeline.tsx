@@ -40,8 +40,9 @@ export function Timeline({ entries, own }: { entries: (EntryLite | MoodEntry)[];
                     {list.map((e, i) => (
                       <li key={e.id} className="relative flex gap-3 pb-3 last:pb-0">
                         <div className="relative flex w-4 shrink-0 justify-center">
-                          {i < list.length - 1 && <span className="absolute bottom-[-6px] top-7 w-[2px] rounded-full bg-accent/25" />}
-                          <span className="relative mt-[22px] size-3 rounded-full border-[3px] bg-surface" style={{ borderColor: moodOf(e.mood_value).color }} />
+                          {/* Линия идёт от центра этой точки до центра следующей: 12px отступа + 22px до точки + 6px радиус */}
+                          {i < list.length - 1 && <span className="absolute bottom-[-40px] top-[28px] w-[2px] bg-accent/25" />}
+                          <span className="relative z-10 mt-[22px] size-3 rounded-full border-[3px] bg-surface" style={{ borderColor: moodOf(e.mood_value).color }} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <EntryCard entry={e} own={own} />

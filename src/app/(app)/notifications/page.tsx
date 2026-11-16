@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { PushBanner } from "@/components/notifications/PushControl";
 import { useQuery, invalidate } from "@/lib/query";
+import { isImpersonating } from "@/lib/impersonate";
 import { fetchNotifications, fetchNotifSettings, markRead, keys } from "@/lib/api";
 import { moodOf } from "@/lib/mood";
 import { timeAgo, todayKey, toKey } from "@/lib/dates";
@@ -57,6 +58,8 @@ export default function NotificationsPage() {
     if (!unreadIds.length) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFresh((prev) => new Set([...prev, ...unreadIds]));
+    // Администратор в чужом аккаунте уведомления прочитанными не отмечает
+    if (isImpersonating()) return;
     markRead("all").then(() => invalidate(keys.unread, keys.notifications)).catch(() => undefined);
   }, [q.data]);
   const unread = fresh.size;

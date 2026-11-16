@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { ArrowUpDown, CalendarDays, KeyRound, Trash2, Save, Wand2, Plus, Mail, Shield, Clock, Ban, Heart, Pencil, Send } from "lucide-react";
+import { ArrowUpDown, CalendarDays, LogIn, KeyRound, Trash2, Save, Wand2, Plus, Mail, Shield, Clock, Ban, Heart, Pencil, Send } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -13,13 +13,14 @@ import { MoodEmoji } from "@/components/mood/MoodEmoji";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useQuery, invalidate } from "@/lib/query";
 import {
-  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, amIOwner, adminSetAdmin, adminListUsers,
+  adminUserEntries, adminCreateEntry, adminUpdateEntry, adminSetContactEmail, adminBlockUser, adminUnblockUser, fetchSupportWall, deleteSupportMessage, adminSaveBadge, adminSetUserBadge, adminEditSupportMessage, adminPostSupportMessage, keys, adminUpdatePrivacy, adminUserPrivacy, adminUserActivity, EMAIL_RE, adminDeleteEntry, adminSetPassword, adminUpdateProfile, adminDeleteUser, amIOwner, adminSetAdmin, adminListUsers, adminImpersonationLog,
 } from "@/lib/api";
 import { MOODS, dayPartOf, dayPartByHour } from "@/lib/mood";
 import { formatRelativeDay, formatTime, todayKey, combineDateTime, plural } from "@/lib/dates";
 import { humanError } from "@/lib/errors";
 import { usePhoto } from "@/hooks/data";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { startImpersonation } from "@/lib/impersonate";
 import type { AdminUser, MoodEntry } from "@/lib/types";
 
 const VIS: Record<string, string> = { all: "видят всё", latest: "только последнее", none: "закрытый профиль" };
@@ -385,6 +386,42 @@ const BLOCK_PRESETS = [
 ] as const;
 
 /** Блокировка: на срок или навсегда. Заблокированный входит, но видит только экран блокировки. */
+/** Войти в аккаунт пользователя без пароля и увидеть всё от его лица. Только владелец; в журнал записывается каждый вход. */
+function ImpersonateSection({ user }: { user: AdminUser }) {
+  const toast = useToast();
+  const { profile } = useAuth();
+  const owner = useQuery(profile ? `am-owner:${profile.id}` : null, amIOwner);
+  const log = useQuery(owner.data && user.id !== profile?.id && !user.is_admin ? `impersonation-log:${user.id}` : null, () => adminImpersonationLog(user.id));
+  const [busy, setBusy] = useState(false);
+  if (!owner.data || user.id === profile?.id || user.is_admin) return null;
+
+  async function go() {
+    setBusy(true);
+    try {
+      await startImpersonation(user.id, user.display_name ?? user.username ?? "пользователя");
+    } catch (e) {
+      toast(humanError(e), "error");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 font-bold">Войти в аккаунт</h3>
+      <p className="mb-2 text-[13px] text-muted">
+        Откроется приложение от лица пользователя, без пароля. Всё, что сделаешь там, происходит от его имени. Вернуться можно кнопкой сбоку.
+        Каждый вход записывается в журнал.
+      </p>
+      <Button size="sm" variant="secondary" loading={busy} onClick={go}>
+        <LogIn className="size-4" /> Войти в аккаунт
+      </Button>
+      {log.data && log.data.length > 0 && (
+        <p className="mt-2 text-xs text-muted">Последний вход администратора: {fmtDateTime(log.data[0].created_at)} (всего {log.data.length})</p>
+      )}
+    </section>
+  );
+}
+
 /** Назначить или снять администратора. Видна только владельцу сервиса; база это проверяет ещё раз. */
 function AdminRightsSection({ user, onChanged }: { user: AdminUser; onChanged: () => void }) {
   const toast = useToast();
@@ -972,6 +1009,7 @@ export function AdminUserSheet({ user, onClose }: { user: AdminUser | null; onCl
         </Button>
       </section>
 
+      <ImpersonateSection user={user} />
       <AdminRightsSection user={user} onChanged={() => invalidate("admin-users")} />
       {!user.is_admin && <BlockSection key={user.id + String(user.is_blocked)} user={user} onChanged={() => invalidate("admin-users")} />}
       <StatusSection user={user} />
