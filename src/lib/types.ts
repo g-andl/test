@@ -93,6 +93,8 @@ export interface PrivacySettings {
   support_view: "all" | "friends" | "owner";
   /** Заметки в дневнике: кто может читать */
   journal_visibility: "me" | "friends" | "all";
+  /** Итоги дня: кто может читать */
+  reflections_visibility: "me" | "friends" | "all";
 }
 
 /** Статус пользователя: цветная пометка рядом с именем */

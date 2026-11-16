@@ -147,9 +147,12 @@ try {
   // После «Плохо» предлагается минута дыхания
   const breath = page.getByRole("dialog").filter({ hasText: "Минута дыхания" });
   await breath.getByRole("button", { name: "Подышать минуту" }).waitFor();
+  await page.waitForTimeout(900);
   await page.screenshot({ path: `${SHOTS}/06a-breathing-390.png` });
   await breath.getByRole("button", { name: "Подышать минуту" }).click();
   await breath.getByText("Вдох").waitFor();
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${SHOTS}/06a2-breathing-run-390.png` });
   await breath.getByRole("button", { name: "Закончить" }).click();
   await breath.waitFor({ state: "detached" });
   await dialog.waitFor({ state: "detached" });

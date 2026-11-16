@@ -1,5 +1,5 @@
 "use client";
-import { Users, Globe, Lock, Heart, NotebookPen } from "lucide-react";
+import { Users, Globe, Lock, Heart, NotebookPen, Sunrise } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Toggle } from "@/components/ui/Toggle";
@@ -171,6 +171,25 @@ export default function PrivacyPage() {
                   {s.journal_visibility === "friends" ? "Заметки смогут читать твои друзья." : "Заметки смогут читать все пользователи сервиса."}
                 </p>
               )}
+            </Card>
+            <Card>
+              <p className="mb-1 flex items-center gap-2 text-[15px] font-bold">
+                <Sunrise className="size-[18px] text-muted" /> Итоги дня
+              </p>
+              <p className="mb-3 text-[13px] text-muted">Оценка дня звёздами и ответы на вопросы «Что порадовало», «Что разочаровало», «Что понял». По умолчанию видны всем.</p>
+              <div role="radiogroup" aria-label="Кто видит итоги дня" className="flex flex-wrap gap-2">
+                {([["all", "Все"], ["friends", "Друзья"], ["me", "Только я"]] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    role="radio"
+                    aria-checked={s.reflections_visibility === v}
+                    onClick={() => set({ reflections_visibility: v })}
+                    className={`h-10 rounded-full px-4 text-sm font-semibold transition active:scale-95 ${s.reflections_visibility === v ? "bg-accent text-white" : "bg-surface-2 text-text-2"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </Card>
             <p className="px-2 text-xs text-muted">
               Ограничения проверяются на сервере: даже при прямом запросе к базе скрытые данные недоступны.
